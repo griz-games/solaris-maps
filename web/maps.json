@@ -1,0 +1,16 @@
+{
+  "title": "Solaris Maps",
+  "tagline": "Custom galaxies for Solaris",
+  "repo": "https://github.com/solaris-games/solaris",
+  "maps": [
+    {
+      "slug": "spy-v-spy",
+      "title": "Spy v Spy",
+      "summary": "36 players, 9 galaxies, one wormhole per galaxy pair — and everybody is being watched.",
+      "players": 36,
+      "stars": 765,
+      "doc": "maps/spy-v-spy.md",
+      "download": "downloads/spy_v_spy.json"
+    }
+  ]
+}

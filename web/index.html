@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solaris Maps</title>
+<meta name="description" content="Custom galaxy maps for Solaris.">
+<style>
+:root {
+    --bg: #05070b;
+    --panel: #0b1017;
+    --edge: #1b2531;
+    --ink: #dbe5ef;
+    --muted: #8fa3b8;
+    --faint: #5b6b7f;
+    --green: #3cd2a5;
+    --blue: #4e9cff;
+    --amber: #ff9f0c;
+    --sidebar: 260px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+}
+a { color: var(--green); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---- layout ---- */
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+    width: var(--sidebar);
+    flex: 0 0 var(--sidebar);
+    border-right: 1px solid var(--edge);
+    background: var(--panel);
+    padding: 26px 20px 40px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+.brand { font-size: 19px; font-weight: 700; letter-spacing: .02em; color: var(--ink); }
+.brand span { color: var(--green); }
+.tagline { color: var(--faint); font-size: 13px; margin-top: 4px; }
+.nav-title {
+    margin: 28px 0 10px;
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+.nav a {
+    display: block;
+    padding: 7px 10px;
+    margin: 0 -10px;
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 14.5px;
+}
+.nav a:hover { background: #121a24; color: var(--ink); text-decoration: none; }
+.nav a.active { background: #14202c; color: var(--green); font-weight: 600; }
+.nav .meta { display: block; font-size: 12px; color: var(--faint); }
+.toc a { font-size: 13.5px; padding: 5px 10px; }
+.toc a.lvl3 { padding-left: 24px; font-size: 13px; }
+
+.main { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; }
+.doc { width: 100%; max-width: 920px; padding: 44px 40px 120px; }
+
+/* ---- markdown ---- */
+.doc h1 { font-size: 34px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -.01em; }
+.doc h2 {
+    font-size: 24px;
+    margin: 46px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--edge);
+}
+.doc h3 { font-size: 18px; margin: 32px 0 10px; color: var(--blue); }
+.doc p { margin: 14px 0; }
+.doc ul, .doc ol { margin: 14px 0; padding-left: 24px; }
+.doc li { margin: 7px 0; }
+.doc li > ul, .doc li > ol { margin: 6px 0; }
+.doc hr { border: 0; border-top: 1px solid var(--edge); margin: 40px 0; }
+.doc strong { color: #fff; font-weight: 650; }
+.doc blockquote {
+    margin: 18px 0;
+    padding: 2px 18px;
+    border-left: 3px solid var(--amber);
+    color: var(--muted);
+}
+.doc code {
+    font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: .89em;
+    background: #121a24;
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+.doc pre {
+    background: #0a0f16;
+    border: 1px solid var(--edge);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 18px 0;
+}
+.doc pre code { background: none; border: 0; padding: 0; font-size: 14px; color: var(--green); }
+.doc table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 14.5px;
+    display: block;
+    overflow-x: auto;
+}
+.doc th, .doc td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--edge); }
+.doc th { color: var(--faint); font-size: 12px; letter-spacing: .09em; text-transform: uppercase; font-weight: 600; }
+.doc td:first-child { white-space: nowrap; }
+.doc tbody tr:hover { background: #0c131b; }
+.doc img { max-width: 100%; height: auto; border-radius: 8px; }
+
+/* ---- map viewer ---- */
+.viewer {
+    margin: 24px 0;
+    border: 1px solid var(--edge);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+}
+.viewer-stage {
+    position: relative;
+    height: 560px;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+    background: #000;
+}
+.viewer-stage.dragging { cursor: grabbing; }
+.viewer-stage img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    max-width: none;
+    border-radius: 0;
+    image-rendering: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+.viewer-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 9px 12px;
+    border-top: 1px solid var(--edge);
+    background: var(--panel);
+}
+.viewer-bar button {
+    font: 500 12.5px/1 ui-sans-serif, system-ui, sans-serif;
+    color: var(--muted);
+    background: #121a24;
+    border: 1px solid var(--edge);
+    border-radius: 5px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+.viewer-bar button:hover { color: var(--ink); border-color: #2c3a4a; }
+.viewer-bar .spacer { flex: 1 1 auto; }
+.viewer-bar .hint { font-size: 12px; color: var(--faint); }
+.viewer-caption { font-size: 13px; color: var(--faint); margin: -12px 0 24px; }
+.viewer-stage:fullscreen { height: 100vh; }
+
+.loading, .error { color: var(--faint); padding: 60px 0; }
+.error { color: #ff6060; }
+
+@media (max-width: 860px) {
+    .shell { display: block; }
+    .sidebar { width: auto; height: auto; position: static; border-right: 0; border-bottom: 1px solid var(--edge); }
+    .doc { padding: 28px 20px 90px; }
+    .viewer-stage { height: 62vh; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="sidebar">
+        <div class="brand">Solaris <span>Maps</span></div>
+        <div class="tagline" id="tagline"></div>
+        <div class="nav-title">Maps</div>
+        <nav class="nav" id="nav"></nav>
+        <div class="nav-title" id="toc-title" hidden>On this page</div>
+        <nav class="nav toc" id="toc"></nav>
+    </aside>
+    <main class="main">
+        <article class="doc" id="doc"><p class="loading">Loading…</p></article>
+    </main>
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Markdown -> HTML. Deliberately small: it covers the subset used by
+ * these map write-ups (headings, lists, tables, fenced code, quotes,
+ * images, links, emphasis, rules) and nothing else.
+ * ------------------------------------------------------------------ */
+
+function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function inline(s) {
+    // Code spans are extracted first so their contents are never re-parsed.
+    const spans = [];
+    s = s.replace(/`([^`]+)`/g, (_, code) => {
+        spans.push("<code>" + escapeHtml(code) + "</code>");
+        return "\u0000" + (spans.length - 1) + "\u0000";
+    });
+    s = escapeHtml(s);
+    s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,
+        (_, alt, src) => `<img src="${src}" alt="${alt}">`);
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, href) => {
+        const ext = /^https?:/i.test(href) ? ' target="_blank" rel="noopener"' : "";
+        return `<a href="${href}"${ext}>${label}</a>`;
+    });
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|[\s(])\*([^*]+)\*/g, "$1<em>$2</em>");
+    s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => spans[+i]);
+    return s;
+}
+
+function splitRow(row) {
+    return row.replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+}
+
+function markdown(src) {
+    const lines = src.replace(/\r\n?/g, "\n").split("\n");
+    const out = [];
+    let i = 0;
+
+    const listBlock = (ordered) => {
+        const tag = ordered ? "ol" : "ul";
+        const items = [];
+        const marker = ordered ? /^(\s*)\d+\.\s+(.*)$/ : /^(\s*)[-*]\s+(.*)$/;
+        let base = null;
+        while (i < lines.length) {
+            const m = lines[i].match(marker);
+            if (m) {
+                if (base === null) base = m[1].length;
+                if (m[1].length < base) break;
+                if (m[1].length >= base + 2 && items.length) {
+                    // Nested list: recurse, keeping it inside the current <li>.
+                    const nested = listBlock(/^\s*\d+\./.test(lines[i]));
+                    items[items.length - 1] += nested;
+                    continue;
+                }
+                items.push(inline(m[2]));
+                i++;
+            } else if (/^\s+\S/.test(lines[i]) && items.length) {
+                items[items.length - 1] += " " + inline(lines[i].trim());
+                i++;
+            } else {
+                break;
+            }
+        }
+        return `<${tag}>` + items.map(t => `<li>${t}</li>`).join("") + `</${tag}>`;
+    };
+
+    while (i < lines.length) {
+        const line = lines[i];
+
+        if (!line.trim()) { i++; continue; }
+
+        if (/^```/.test(line)) {
+            const body = [];
+            i++;
+            while (i < lines.length && !/^```/.test(lines[i])) body.push(lines[i++]);
+            i++;
+            out.push("<pre><code>" + escapeHtml(body.join("\n")) + "</code></pre>");
+            continue;
+        }
+
+        const heading = line.match(/^(#{1,4})\s+(.*)$/);
+        if (heading) {
+            const level = heading[1].length;
+            const html = inline(heading[2]);
+            const id = heading[2].toLowerCase().replace(/[^\w\s-]/g, "").trim()
+                .replace(/\s+/g, "-");
+            out.push(`<h${level} id="${id}">${html}</h${level}>`);
+            i++;
+            continue;
+        }
+
+        if (/^(---+|\*\*\*+)\s*$/.test(line)) { out.push("<hr>"); i++; continue; }
+
+        // Table: a header row followed by a |---|---| separator.
+        if (/^\|/.test(line) && i + 1 < lines.length && /^\|[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+            const head = splitRow(line);
+            i += 2;
+            const rows = [];
+            while (i < lines.length && /^\|/.test(lines[i])) rows.push(splitRow(lines[i++]));
+            out.push("<table><thead><tr>"
+                + head.map(c => `<th>${inline(c)}</th>`).join("")
+                + "</tr></thead><tbody>"
+                + rows.map(r => "<tr>" + r.map(c => `<td>${inline(c)}</td>`).join("") + "</tr>").join("")
+                + "</tbody></table>");
+            continue;
+        }
+
+        if (/^\s*[-*]\s+/.test(line)) { out.push(listBlock(false)); continue; }
+        if (/^\s*\d+\.\s+/.test(line)) { out.push(listBlock(true)); continue; }
+
+        if (/^>\s?/.test(line)) {
+            const body = [];
+            while (i < lines.length && /^>\s?/.test(lines[i])) body.push(lines[i++].replace(/^>\s?/, ""));
+            out.push("<blockquote>" + markdown(body.join("\n")) + "</blockquote>");
+            continue;
+        }
+
+        const para = [];
+        while (i < lines.length && lines[i].trim()
+               && !/^(#{1,4}\s|```|>|\s*[-*]\s|\s*\d+\.\s|\|)/.test(lines[i])
+               && !/^(---+|\*\*\*+)\s*$/.test(lines[i])) {
+            para.push(lines[i++]);
+        }
+        if (para.length) out.push("<p>" + inline(para.join("\n")) + "</p>");
+        else i++;
+    }
+    return out.join("\n");
+}
+
+/* ------------------------------------------------------------------ *
+ * Pan / zoom viewer. Any image whose alt text starts with "zoom:"
+ * becomes one of these instead of a plain <img>.
+ * ------------------------------------------------------------------ */
+
+function makeViewer(src, caption) {
+    const wrap = document.createElement("div");
+    wrap.className = "viewer";
+    const stage = document.createElement("div");
+    stage.className = "viewer-stage";
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = caption;
+    img.draggable = false;
+    stage.appendChild(img);
+
+    const bar = document.createElement("div");
+    bar.className = "viewer-bar";
+    wrap.append(stage, bar);
+
+    const MAX = 40;
+    let scale = 1, minScale = 1, x = 0, y = 0, natural = null;
+
+    const apply = () => { img.style.transform = `translate(${x}px, ${y}px) scale(${scale})`; };
+
+    function clamp() {
+        const vw = stage.clientWidth, vh = stage.clientHeight;
+        const w = natural.w * scale, h = natural.h * scale;
+        x = w <= vw ? (vw - w) / 2 : Math.min(0, Math.max(vw - w, x));
+        y = h <= vh ? (vh - h) / 2 : Math.min(0, Math.max(vh - h, y));
+    }
+
+    function reset() {
+        if (!natural) return;
+        const vw = stage.clientWidth, vh = stage.clientHeight;
+        minScale = Math.min(vw / natural.w, vh / natural.h);
+        scale = minScale;
+        clamp();
+        apply();
+    }
+
+    function zoomTo(factor, cx, cy) {
+        if (!natural) return;
+        const next = Math.max(minScale, Math.min(MAX * minScale, scale * factor));
+        const ratio = next / scale;
+        x = cx - (cx - x) * ratio;
+        y = cy - (cy - y) * ratio;
+        scale = next;
+        clamp();
+        apply();
+    }
+
+    // Fly to a point given as a 0..1 fraction of the image, framing a square
+    // box of `radius` (also a fraction of image width) around it.
+    function focus(nx, ny, radius) {
+        if (!natural) return;
+        const vw = stage.clientWidth, vh = stage.clientHeight;
+        const box = natural.w * radius * 2;
+        scale = Math.max(minScale, Math.min(MAX * minScale, Math.min(vw, vh) / box));
+        x = vw / 2 - nx * natural.w * scale;
+        y = vh / 2 - ny * natural.h * scale;
+        clamp();
+        img.style.transition = "transform .35s ease";
+        apply();
+        setTimeout(() => { img.style.transition = ""; }, 380);
+    }
+
+    img.addEventListener("load", () => {
+        natural = { w: img.naturalWidth, h: img.naturalHeight };
+        img.style.width = natural.w + "px";
+        img.style.height = natural.h + "px";
+        reset();
+    });
+
+    stage.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const r = stage.getBoundingClientRect();
+        zoomTo(Math.exp(-e.deltaY * 0.0016), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+
+    stage.addEventListener("dblclick", (e) => {
+        const r = stage.getBoundingClientRect();
+        zoomTo(2, e.clientX - r.left, e.clientY - r.top);
+    });
+
+    const pointers = new Map();
+    let pinch = null;
+    stage.addEventListener("pointerdown", (e) => {
+        stage.setPointerCapture(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        stage.classList.add("dragging");
+    });
+    stage.addEventListener("pointermove", (e) => {
+        if (!pointers.has(e.pointerId) || !natural) return;
+        const prev = pointers.get(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const pts = [...pointers.values()];
+        if (pts.length === 1) {
+            x += e.clientX - prev.x;
+            y += e.clientY - prev.y;
+            clamp();
+            apply();
+        } else if (pts.length === 2) {
+            const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            const r = stage.getBoundingClientRect();
+            const mid = { x: (pts[0].x + pts[1].x) / 2 - r.left, y: (pts[0].y + pts[1].y) / 2 - r.top };
+            if (pinch) zoomTo(dist / pinch, mid.x, mid.y);
+            pinch = dist;
+        }
+    });
+    const release = (e) => {
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) pinch = null;
+        if (!pointers.size) stage.classList.remove("dragging");
+    };
+    stage.addEventListener("pointerup", release);
+    stage.addEventListener("pointercancel", release);
+    window.addEventListener("resize", reset);
+
+    const button = (label, fn, host) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.addEventListener("click", fn);
+        (host || bar).appendChild(b);
+        return b;
+    };
+    const half = () => ({ cx: stage.clientWidth / 2, cy: stage.clientHeight / 2 });
+    button("−", () => { const p = half(); zoomTo(1 / 1.6, p.cx, p.cy); });
+    button("+", () => { const p = half(); zoomTo(1.6, p.cx, p.cy); });
+    button("Fit", reset);
+
+    // Jump targets arrive asynchronously, so they get their own slot in the bar
+    // now — otherwise they would land after the controls added below.
+    const jumps = document.createElement("span");
+    jumps.style.display = "contents";
+    bar.appendChild(jumps);
+
+    const spacer = document.createElement("span");
+    spacer.className = "spacer";
+    bar.appendChild(spacer);
+    const hint = document.createElement("span");
+    hint.className = "hint";
+    hint.textContent = "drag to pan · scroll to zoom";
+    bar.appendChild(hint);
+    button("Full screen", () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
+    });
+
+    // Optional jump targets, emitted next to the SVG by the render script.
+    fetch(src.replace(/\.svg$/, ".json"))
+        .then(r => r.ok ? r.json() : null)
+        .then(meta => {
+            if (!meta || !Array.isArray(meta.targets)) return;
+            meta.targets.forEach(t => button(t.label, () => focus(t.x, t.y, t.r), jumps));
+        })
+        .catch(() => {});
+    document.addEventListener("fullscreenchange", () => setTimeout(reset, 60));
+
+    const frag = document.createDocumentFragment();
+    frag.appendChild(wrap);
+    if (caption) {
+        const cap = document.createElement("p");
+        cap.className = "viewer-caption";
+        cap.textContent = caption;
+        frag.appendChild(cap);
+    }
+    return frag;
+}
+
+/* ------------------------------------------------------------------ *
+ * Site
+ * ------------------------------------------------------------------ */
+
+const docEl = document.getElementById("doc");
+const navEl = document.getElementById("nav");
+const tocEl = document.getElementById("toc");
+const tocTitle = document.getElementById("toc-title");
+let catalogue = null;
+
+// Paths inside a map document resolve from the site root, not from maps/,
+// because that is where index.html lives.
+function upgradeViewers(root) {
+    root.querySelectorAll("img").forEach(img => {
+        const alt = img.getAttribute("alt") || "";
+        if (!alt.startsWith("zoom:")) return;
+        img.replaceWith(makeViewer(img.src, alt.slice(5).trim()));
+    });
+}
+
+function buildToc(root) {
+    const heads = [...root.querySelectorAll("h2, h3")];
+    tocEl.innerHTML = "";
+    tocTitle.hidden = heads.length === 0;
+    heads.forEach(h => {
+        const a = document.createElement("a");
+        a.href = "#" + h.id;
+        a.textContent = h.textContent;
+        if (h.tagName === "H3") a.className = "lvl3";
+        a.addEventListener("click", (e) => {
+            e.preventDefault();
+            h.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+        tocEl.appendChild(a);
+    });
+}
+
+async function showMap(slug) {
+    const map = catalogue.maps.find(m => m.slug === slug) || catalogue.maps[0];
+    if (!map) { docEl.innerHTML = '<p class="error">No maps in maps.json yet.</p>'; return; }
+    [...navEl.querySelectorAll("a")].forEach(a => {
+        a.classList.toggle("active", a.dataset.slug === map.slug);
+    });
+    docEl.innerHTML = '<p class="loading">Loading…</p>';
+    try {
+        const res = await fetch(map.doc);
+        if (!res.ok) throw new Error(res.status + " " + res.statusText);
+        docEl.innerHTML = markdown(await res.text());
+        upgradeViewers(docEl);
+        buildToc(docEl);
+        window.scrollTo(0, 0);
+    } catch (err) {
+        docEl.innerHTML = `<p class="error">Could not load ${map.doc} — ${err.message}.<br>
+            If you are opening this file directly, serve the folder instead
+            (<code>python -m http.server</code>); browsers block fetch on file:// URLs.</p>`;
+    }
+}
+
+function route() {
+    showMap(decodeURIComponent(location.hash.replace(/^#\/?/, "")));
+}
+
+async function boot() {
+    try {
+        const res = await fetch("maps.json");
+        if (!res.ok) throw new Error(res.status + " " + res.statusText);
+        catalogue = await res.json();
+    } catch (err) {
+        docEl.innerHTML = `<p class="error">Could not load maps.json — ${err.message}.<br>
+            Serve this folder over HTTP (<code>python -m http.server</code>) rather than
+            opening the file directly.</p>`;
+        return;
+    }
+    document.title = catalogue.title || "Solaris Maps";
+    document.getElementById("tagline").textContent = catalogue.tagline || "";
+    catalogue.maps.forEach(m => {
+        const a = document.createElement("a");
+        a.href = "#/" + m.slug;
+        a.dataset.slug = m.slug;
+        a.append(m.title);
+        const meta = document.createElement("span");
+        meta.className = "meta";
+        meta.textContent = `${m.players} players · ${m.stars} stars`;
+        a.appendChild(meta);
+        navEl.appendChild(a);
+    });
+    window.addEventListener("hashchange", route);
+    route();
+}
+
+boot();
+</script>
+</body>
+</html>
