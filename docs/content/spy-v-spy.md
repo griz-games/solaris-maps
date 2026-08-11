@@ -29,7 +29,7 @@ So for every player there are:
 - **A spy post**, parked 4 hy away from the nearest star and containing a telescope array that can see the two nearest stars owned by a player.
 - **A gateway**, parked next to each local player's nebula, which lets each player access a spy post.
 
-### Resources escalation
+### Resource escalation
 
 Natural resources are not scattered randomly. 
 
