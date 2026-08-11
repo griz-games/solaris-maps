@@ -1,13 +1,13 @@
 # Spy v. Spy
 
-**36 players · 9 galaxies · 36 wormholes**
+**36 players · 9 galaxies · 72 wormholes**
 
-*Somebody is always watching you.*
+*Someone is always watching you.*
 
 Go back to your Solaris salad days: a new player galaxy and only 4 players. But you'll need to grow up fast. The galaxy is bigger than you think.
 
-Nine self-contained galaxies sit on ring. Four players share each galaxy. 36 wormholes, one for every
-galaxy pair, and **exactly one end of every wormhole is a spy post owned by a foreign player**. There's nowhere for you to hide. Better move fast.
+Nine self-contained galaxies sit on ring. Four players share each galaxy. 72 wormholes, one for every
+galaxy pair, and exactly one end of every wormhole is a **spy post owned by a foreign player**. There's nowhere for you to hide so you better move fast.
 
 This is a game of local battles and long-distance intelligence. Will you fight off your starting neighbors to claim the juicy core at the center? Or will you play nice and plan out a broader alliance to face all the foreign threats?
 
