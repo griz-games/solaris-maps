@@ -63,6 +63,6 @@ Typical settings for a 32p
 | Owned at start | (6 per player) |
 
 
-### Wind Condition
+### Win Condition
 
 120 stars (15% of the map)
