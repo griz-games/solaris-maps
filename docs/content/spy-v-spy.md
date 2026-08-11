@@ -6,10 +6,10 @@
 
 Go back to your Solaris salad days: a new player galaxy and only 4 players. But you'll need to grow up fast. The galaxy is bigger than you think.
 
-Nine self-contained galaxies sit on ring. Four players share each galaxy. 46 wormholes, one for every
+Nine self-contained galaxies sit on a ring. Four players share each galaxy. 36 wormholes, one for every
 galaxy pair, and exactly one end of every wormhole is a **spy post owned by a foreign player**. There's nowhere for you to hide so you better move fast.
 
-This is a game of local battles and long-distance intelligence. Will you fight off your starting neighbors to claim the juicy core at the center? Or will you play nice and plan out a broader alliance to face all the foreign threats?
+This is a game of local battles and long-distance intelligence. Will you fight off your starting neighbors to claim the juicy core at the center? Or will you play nice and plan out a broader alliance to face all the other threats?
 
 Your starting position has a galactic core that is worth more than everything else around it. Your most valuable information is about someone four galaxies away who you cannot reach and cannot hurt you — yet. How will you proceed?
 
