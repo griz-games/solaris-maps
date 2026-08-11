@@ -13,13 +13,9 @@ This is a game of local battles and long-distance intelligence. Will you fight o
 
 Your starting position has a galactic core that is worth more than everything else around it. Your most valuable information is about someone four galaxies away who you cannot reach and cannot hurt you — yet. How will you proceed?
 
----
+## The Map
 
-## The map
-
-![zoom:Spy v Spy](assets/spy-v-spy-map.svg)
-
----
+![zoom:](assets/spy-v-spy-map.svg)
 
 ## Map features
 
@@ -33,12 +29,13 @@ So for every player there are:
 - **A spy post**, parked 4 hy away from the nearest star and containing a telescope array that can see the two nearest stars owned by a player.
 - **A gateway**, parked next to each local player's nebula, which lets each player access a spy post.
 
-## Resources escalate as you move towards the core
+### Resources escalation
 
-Natural resources are not scattered. Every star's value is a smooth function of how far it
-sits from its galactic core.
+Natural resources are not scattered randomly. 
 
-Stars get increasingly tempting as you move towards the center and at the exact middle is a disproportionately valuable star that only one player can own. Buy you better move fast! The core star has a war machine on it and it will be gone by tick 150!
+Stars get increasingly tempting as you move towards the center and at the exact middle is a disproportionately valuable star that only one player can own. But you better move fast. The core star has a war machine on it and it will be gone by tick 150!
+
+## Map Settings
 
 ### Starting conditions 
 
@@ -57,7 +54,7 @@ Stars get increasingly tempting as you move towards the center and at the exact 
 
 Typical settings for a 32p
 
-### Map totals
+### Star counts
 
 | | |
 |---|---|
@@ -65,4 +62,7 @@ Typical settings for a 32p
 | Players | 36 (4 per galaxy) |
 | Owned at start | (6 per player) |
 
-**Win condition**: 120 stars (15% of the map)
+
+### Wind Condition
+
+120 stars (15% of the map)

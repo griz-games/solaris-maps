@@ -513,8 +513,15 @@ const tocEl = document.getElementById("toc");
 const tocTitle = document.getElementById("toc-title");
 let catalogue = null;
 
-// Paths inside a map document resolve from the site root, not from maps/,
-// because that is where index.html lives.
+// A catalogue entry names its write-up with either `doc` (a path relative to
+// this file) or `content` (a bare filename, resolved under content/). Paths
+// *inside* a map document resolve from the site root, because that is where
+// index.html lives.
+function docPath(m) {
+    const p = m.doc || m.content || "";
+    return p.includes("/") ? p : "content/" + p;
+}
+
 function upgradeViewers(root) {
     root.querySelectorAll("img").forEach(img => {
         const alt = img.getAttribute("alt") || "";
@@ -547,15 +554,16 @@ async function showMap(slug) {
         a.classList.toggle("active", a.dataset.slug === map.slug);
     });
     docEl.innerHTML = '<p class="loading">Loading…</p>';
+    const path = docPath(map);
     try {
-        const res = await fetch(map.doc);
+        const res = await fetch(path);
         if (!res.ok) throw new Error(res.status + " " + res.statusText);
         docEl.innerHTML = markdown(await res.text());
         upgradeViewers(docEl);
         buildToc(docEl);
         window.scrollTo(0, 0);
     } catch (err) {
-        docEl.innerHTML = `<p class="error">Could not load ${map.doc} — ${err.message}.<br>
+        docEl.innerHTML = `<p class="error">Could not load ${path} — ${err.message}.<br>
             If you are opening this file directly, serve the folder instead
             (<code>python -m http.server</code>); browsers block fetch on file:// URLs.</p>`;
     }
@@ -570,27 +578,30 @@ async function boot() {
         const res = await fetch("maps.json");
         if (!res.ok) throw new Error(res.status + " " + res.statusText);
         catalogue = await res.json();
+        // The catalogue array has been spelled both ways; accept either.
+        catalogue.maps = catalogue.maps || catalogue.docs || [];
+        if (!Array.isArray(catalogue.maps)) throw new Error('no "maps" array');
+
+        document.title = catalogue.title || "Solaris Maps";
+        document.getElementById("tagline").textContent = catalogue.tagline || "";
+        catalogue.maps.forEach(m => {
+            const a = document.createElement("a");
+            a.href = "#/" + m.slug;
+            a.dataset.slug = m.slug;
+            a.append(m.title);
+            const meta = document.createElement("span");
+            meta.className = "meta";
+            meta.textContent = `${m.players} players · ${m.stars} stars`;
+            a.appendChild(meta);
+            navEl.appendChild(a);
+        });
+        window.addEventListener("hashchange", route);
+        route();
     } catch (err) {
         docEl.innerHTML = `<p class="error">Could not load maps.json — ${err.message}.<br>
             Serve this folder over HTTP (<code>python -m http.server</code>) rather than
             opening the file directly.</p>`;
-        return;
     }
-    document.title = catalogue.title || "Solaris Maps";
-    document.getElementById("tagline").textContent = catalogue.tagline || "";
-    catalogue.maps.forEach(m => {
-        const a = document.createElement("a");
-        a.href = "#/" + m.slug;
-        a.dataset.slug = m.slug;
-        a.append(m.title);
-        const meta = document.createElement("span");
-        meta.className = "meta";
-        meta.textContent = `${m.players} players · ${m.stars} stars`;
-        a.appendChild(meta);
-        navEl.appendChild(a);
-    });
-    window.addEventListener("hashchange", route);
-    route();
 }
 
 boot();
