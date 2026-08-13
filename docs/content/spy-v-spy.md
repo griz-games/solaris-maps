@@ -7,7 +7,7 @@
 Go back to your Solaris salad days: a new player galaxy and only 4 players. But you'll need to grow up fast. The galaxy is bigger than you think.
 
 Nine self-contained galaxies sit on a ring. Four players share each galaxy. 36 wormholes, one for every
-galaxy pair, and exactly one end of every wormhole is a **spy post owned by a foreign player**. There's nowhere for you to hide so you better move fast.
+galaxy pair, and exactly one end of every wormhole is a **neutral black hole spy post**, sitting where nobody can sail to it. There's nowhere for you to hide so you better move fast.
 
 This is a game of local battles and long-distance intelligence. Will you fight off your starting neighbors to claim the juicy core at the center? Or will you play nice and plan out a broader alliance to face all the other threats?
 
@@ -26,14 +26,15 @@ Every galaxy therefore has 8 wormhole stars, one reaching each of the other eigh
 
 So for every player there are:
 
-- **A spy post**, parked 4 hy away from the nearest star and containing a telescope array that can see the two nearest stars owned by a player.
-- **A gateway**, parked next to each local player's nebula, which lets each player access a spy post.
+- **A spy post**, a neutral black hole carrying a telescope array. Its nearest neighbour of any kind is 4 hy away.
+  
+- **A gateway**, parked next to each local player's nebula.
 
 ### Resource escalation
 
 Natural resources are not scattered randomly. 
 
-Stars get increasingly tempting as you move towards the center and at the exact middle is a disproportionately valuable star that only one player can own. But you better move fast. The core star has a war machine on it and it will be gone by tick 150!
+Stars get increasingly tempting as you move towards the center: 10 at the fringe, a 25 average, and 125 on the pulsar at the exact middle — a disproportionately valuable star that only one player can own, and it starts with 10/10/5 infrastructure already on it. It is exactly 30 ticks from every one of the 36 starting positions, so nobody gets a head start. 
 
 ## Map Settings
 
@@ -52,17 +53,17 @@ Stars get increasingly tempting as you move towards the center and at the exact 
 | Manufacturing | 1 |
 | Specialists | 1 |
 
-Typical settings for a 32p
+Typical settings for a 32p. 
 
 ### Star counts
 
 | | |
 |---|---|
-| Stars | 765 (85 per galaxy) |
+| Stars | 909 |
 | Players | 36 (4 per galaxy) |
-| Owned at start | (6 per player) |
+| Owned at start |  6 per player |
 
 
 ### Win Condition
 
-120 stars (15% of the map)
+136 stars (15% of the map)

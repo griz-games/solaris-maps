@@ -8,9 +8,18 @@
       "title": "Spy v Spy",
       "summary": "36 players, 9 galaxies. Everyone is being watched.",
       "players": 36,
-      "stars": 765,
+      "stars": 909,
       "content": "spy-v-spy.md",
       "assets": "assets/spy_v_spy.json"
+    },
+    {
+      "slug": "spy-v-spy-8p",
+      "title": "Spy v Spy — 8p",
+      "summary": "8 players, 2 galaxies. The same map, half the room.",
+      "players": 8,
+      "stars": 202,
+      "content": "spy-v-spy-8p.md",
+      "assets": "assets/spy_v_spy_8p.json"
     }
   ]
 }
