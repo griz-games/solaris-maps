@@ -2,7 +2,7 @@
   "title": "Solaris Maps",
   "tagline": "Custom galaxies for Solaris",
   "repo": "https://github.com/solaris-games/solaris",
-  "docs": [
+  "maps": [
     {
       "slug": "spy-v-spy",
       "title": "Spy v Spy",
@@ -10,7 +10,7 @@
       "players": 36,
       "stars": 909,
       "content": "spy-v-spy.md",
-      "assets": "assets/spy_v_spy.json"
+      "figure": "spy_v_spy"
     },
     {
       "slug": "spy-v-spy-8p",
@@ -19,7 +19,7 @@
       "players": 8,
       "stars": 202,
       "content": "spy-v-spy-8p.md",
-      "assets": "assets/spy_v_spy_8p.json"
+      "figure": "spy_v_spy_8p"
     }
   ]
 }

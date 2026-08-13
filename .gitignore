@@ -4,7 +4,10 @@ __pycache__/
 
 # Rendered figures: regenerable from the map JSON, large, and they change
 # whenever the renderer does. The maps themselves are deliverables and stay.
+# The viewer sidecar belongs to its figure, and the tracked copy of both is the
+# published one in docs/assets/.
 out/*.svg
+out/*_targets.json
 
 # Editor directories and files
 .vscode/*

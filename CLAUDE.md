@@ -29,11 +29,19 @@ that from source.
 solarismap/     the package: rules, geometry, model, validate, inspect, render, specialists
   assets/       vendored game art (~570 KB) + ATTRIBUTION.md
 maps/           one script per map: example.py (template), spy_v_spy.py (909 stars, 36 players)
-out/            built maps and figures
+out/            build output. Maps (*.json) are deliverables and tracked; figures (*.svg) are not
+docs/           the documentation site, served by GitHub Pages from this folder
+  publish.py    the one bridge: copies built figures out of out/ into docs/assets/
 tests/          test_solarismap.py
 .claude/        skill, /newmap and /checkmap commands, validation hooks, permissions
-solaris-maps/   a nested, independent git repo: the documentation site. Leave it alone.
 ```
+
+**The builders and the site are separate, and the arrow only points one way.** A map builder
+writes into `out/` under the map's own name (`spy_v_spy.svg`) and contains no reference to the
+website. The site reads `docs/assets/` under its slug (`spy-v-spy-map.svg`) and contains no
+reference to the builders. `docs/publish.py` is the only thing that spans the two, and the
+mapping it uses is the `figure` key in `docs/maps.json`. Do not make a builder write into
+`docs/`, and do not hand-edit anything in `docs/assets/` — it is generated.
 
 ## Commands
 
@@ -45,6 +53,10 @@ python -m solarismap inspect  out/<map>.json [--json]
 python -m solarismap render   out/<map>.json -o out/<map>.svg [--labels] [--scan] [--focus X,Y,R]
 python -m solarismap rules [--json]
 python tests/test_solarismap.py                      # 110 checks, exits non-zero on failure
+                                                     # (three of them need out/spy_v_spy.json built)
+
+python docs/publish.py [--check]                     # out/ figures -> docs/assets/; --check exits 1 if stale
+python -m http.server -d docs                        # preview the site; fetch() needs HTTP, not file://
 ```
 
 `python -m solarismap` works from the repo root with no install; the map scripts bootstrap `sys.path`

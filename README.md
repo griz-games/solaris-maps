@@ -58,6 +58,7 @@ wormholes, every contested star equidistant from the two players contesting it. 
 | `python -m solarismap rules` | constants, formulas, hard limits, specialists. `--json` for machines. |
 | `python -m solarismap sync-specialists <path>` | regenerate the specialist table from an editor checkout. |
 | `python tests/test_solarismap.py` | 110 checks over the rules math and the validator. |
+| `python docs/publish.py` | copy built figures into the site. `--check` exits 1 if it is stale. |
 
 ## Two different questions
 
@@ -76,6 +77,41 @@ factories and the writer), `validate`, `inspect`, `render`, and `specialists`.
 in `solarismap/assets/` is vendored from the same place — see
 [ATTRIBUTION.md](solarismap/assets/ATTRIBUTION.md), which carries the game-icons.net credits
 the icon license requires.
+
+## The site
+
+`docs/` is the write-up site GitHub Pages serves: `index.html` (a single file — no build step,
+no dependencies), `maps.json` as its catalogue, one Markdown file per map under `content/`, and
+generated figures in `assets/`.
+
+The builders and the site are deliberately kept apart, and the arrow points one way:
+
+```text
+maps/spy_v_spy.py --render   →   out/spy_v_spy.svg          builders name things their way
+                                 out/spy_v_spy_targets.json
+docs/publish.py              →   docs/assets/spy-v-spy-map.svg    the site names things its way
+                                 docs/assets/spy-v-spy-map.json
+```
+
+A builder never writes into `docs/`, and the site never reaches into `out/`. `docs/publish.py`
+is the only thing that spans them; it reads the `figure` key in `maps.json` to know which built
+figure belongs to which page. Everything in `docs/assets/` is generated — edit the builder and
+re-publish, never the asset.
+
+Adding a map to the site is a catalogue entry plus a Markdown file: give it a `slug`, point
+`content` at the write-up, point `figure` at the basename the builder wrote in `out/`, then
+embed the figure with `![zoom:](assets/<slug>-map.svg)`. The `zoom:` prefix is what turns a
+plain image into the pan/zoom viewer; the `-map.json` sidecar next to it supplies the per-galaxy
+jump buttons, and the viewer works without it if a map has none.
+
+```sh
+python maps/spy_v_spy.py --render   # build the map and its figures
+python docs/publish.py              # carry them into the site
+python -m http.server -d docs       # preview on localhost:8000
+```
+
+Preview over HTTP rather than opening `index.html` directly — the page uses `fetch()`, which
+browsers block on `file://` URLs.
 
 ## Rules worth knowing before you design
 

@@ -29,8 +29,10 @@ Run:  python maps/spy_v_spy.py                 # 9 galaxies, 36 players
 
 import argparse
 import heapq
+import json
 import math
 import random
+import re
 import statistics
 import sys
 from pathlib import Path
@@ -1380,18 +1382,60 @@ def _point(star: dict) -> tuple[float, float]:
     return star["location"]["x"], star["location"]["y"]
 
 
+def _view_box(svg: str) -> tuple[float, float, float, float]:
+    """The frame the renderer actually drew, read back off the document.
+
+    Taken from the SVG rather than recomputed, so the jump targets stay pinned
+    to the artwork even if the renderer's margin logic changes.
+    """
+    match = re.search(r'viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"', svg)
+    if match is None:                                     # pragma: no cover
+        raise SystemExit("rendered SVG carries no viewBox")
+    return tuple(float(g) for g in match.groups())        # type: ignore[return-value]
+
+
+def _jump_targets(data: dict, cores: list[dict], svg: str) -> dict:
+    """Normalised jump targets, so the site's viewer can fly to one galaxy.
+
+    Positions are fractions of the viewBox because the page scales the figure
+    to fit; `cores` arrives in the order the figure numbers them, so button
+    'Galaxy 3' and the star captioned 'galaxy 3' are always the same star.
+    """
+    min_x, min_y, width, height = _view_box(svg)
+    fringe = max(min(geometry.dist(_point(s), _point(c)) for c in cores)
+                 for s in data["stars"])
+    return {
+        "width": round(width, 2),
+        "height": round(height, 2),
+        "targets": [{"label": f"Galaxy {index}",
+                     "x": round((_point(core)[0] - min_x) / width, 5),
+                     "y": round((_point(core)[1] - min_y) / height, 5),
+                     "r": round(fringe * 1.35 / width, 5)}
+                    for index, core in enumerate(cores, 1)],
+    }
+
+
 def render_figures(data: dict) -> None:
-    """Write the two documentation figures into out/."""
+    """Write the documentation figures and their viewer sidecar into out/.
+
+    Nothing here knows about the website. `docs/publish.py` is what carries
+    these into docs/assets/ under the site's own naming.
+    """
     from solarismap import render
 
     roles = _roles(data)
     out_dir = ROOT / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    # Named off the map being built, so --galaxies 2 writes its own figures
+    # instead of overwriting the full ring's.
+    stem = OUTPUT.stem
+
+    # One ordering, shared by the figure's captions and the sidecar's buttons.
+    cores_in_order = sorted(roles["cores"], key=lambda s: math.atan2(*_point(s)[::-1]))
 
     def mark_cores(ctx):
         """Amber rings on each galactic core, numbered round the ring."""
-        for index, core in enumerate(sorted(roles["cores"],
-                                            key=lambda s: math.atan2(*_point(s)[::-1])), 1):
+        for index, core in enumerate(cores_in_order, 1):
             cx, cy = _point(core)
             yield ctx.circle(cx, cy, 40, ctx.palette.amber, 2.4, 0.95)
             yield ctx.circle(cx, cy, 54, ctx.palette.amber, 1.2, 0.45, dash="8 7")
@@ -1410,12 +1454,18 @@ def render_figures(data: dict) -> None:
         render.Options(resources=False, ships=False, margin=260.0),
         annotate_over=lambda ctx: list(mark_cores(ctx)) + list(mark_posts(ctx)),
     )
-    target = out_dir / "spy_v_spy.svg"
+    target = out_dir / f"{stem}.svg"
     target.write_text(whole, encoding="utf-8")
     print(f"wrote {target}  ({target.stat().st_size / 1024:.0f} KB, the whole ring)")
 
+    # --- the sidecar that gives the figure its per-galaxy jump buttons -----
+    sidecar = out_dir / f"{stem}_targets.json"
+    sidecar.write_text(json.dumps(_jump_targets(data, cores_in_order, whole), indent=1),
+                       encoding="utf-8")
+    print(f"wrote {sidecar}  ({len(cores_in_order)} jump targets)")
+
     # --- one galaxy, annotated -------------------------------------------
-    core = min(roles["cores"], key=lambda s: math.atan2(*_point(s)[::-1]))
+    core = cores_in_order[0]
     fx, fy = _point(core)
 
     def callouts(ctx):
@@ -1453,7 +1503,7 @@ def render_figures(data: dict) -> None:
                        focus=(fx, fy, POST_R + 260)),
         annotate_over=lambda ctx: list(mark_posts(ctx)) + list(callouts(ctx)),
     )
-    target = out_dir / "spy_v_spy_pod.svg"
+    target = out_dir / f"{stem}_pod.svg"
     target.write_text(pod, encoding="utf-8")
     print(f"wrote {target}  ({target.stat().st_size / 1024:.0f} KB, one galaxy annotated)")
 
