@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Rendered figures: regenerable from the map JSON, large, and they change
+# whenever the renderer does. The maps themselves are deliverables and stay.
+out/*.svg
+
+# Editor directories and files
+.vscode/*
+.idea
+*.suo
+*.sw?
+
+*.env
+/testing/
