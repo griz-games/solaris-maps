@@ -15,12 +15,29 @@ neutral - each player begins with their 6 pod stars and nothing else.
 Everything contested sits on a midline: the bearing exactly halfway between two
 neighbouring wedges, across which the two players' starting pods are mirror
 images, so nothing on it is nearer to one of them than the other. Each of the
-four midlines in a galaxy carries, going outward: a wormhole gateway on the
-capital ring, one hyperspace-3 hop from either neighbour and out of reach of
-both at hyperspace 2; the 75-resource binary star; and a black hole post one
-hyperspace-4 hop beyond that. The post's +3 scanning sees exactly that binary -
-contested neutral ground - and nothing else, and it is unreachable at hyperspace
-3, so the only way in is its wormhole.
+four midlines carries, going outward: an inner-ring star level with the pods'
+asteroid fields, the 75-resource binary, and a four-star fringe arc strung
+through the binary one hyperspace-1 hop at a time.
+
+Both ends of a wormhole belong to exactly one player. Their black hole post sits
+straight out along their own bisector, past the nebula, far enough that nothing
+reaches it under hyperspace 4 - the only way in is its wormhole, and what it
+watches is that one player's capital and frontier and nobody else's. Come through
+and you are behind one player, never between two. Their gateway is swung 19
+degrees off that bisector so the lane out of a pod is not one straight line: it
+lands beside them, level with their outer satellites, one hyperspace-1 hop off
+the edge of the pod.
+
+That swing is the one thing on the map without a mirror, and it costs the galaxy
+its reflection: a quarter turn still maps a galaxy onto itself, a reflection in a
+midline maps everything but the gateways. Nothing that decides fairness rides on
+it - see the symmetry block in check().
+
+Everything a player needs is walkable on the hyperspace 1 they start with: their
+own gateway is 12 ticks away past their outer satellite, and the galactic core 39.
+Hyperspace 2 does not open anything new, it just shortens the road - the inner
+ring sits too far out for a hyperspace-1 carrier to drop straight to the core, so
+that route detours around a pair of bridge stars and pays 3 ticks for it.
 
 Run:  python maps/spy_v_spy.py                 # 9 galaxies, 36 players
       python maps/spy_v_spy.py --galaxies 2    # 2 galaxies, 8 players
@@ -75,8 +92,8 @@ N_GALAXIES = 9                                          # --galaxies overrides t
 PLAYERS_PER_GALAXY = 4                                  # resets everything derived from it
 N_PLAYERS = N_GALAXIES * PLAYERS_PER_GALAXY             # 36
 
-# 8 wormhole stars per galaxy, whatever the galaxy count: a black hole post on
-# each of the four midlines and a gateway on each of the four wedge bisectors.
+# 8 wormhole stars per galaxy, whatever the galaxy count: on each of the four
+# wedge bisectors a gateway and, further out, a black hole post.
 # It is only at nine galaxies that this also happens to be one slot per other
 # galaxy, which is what makes that ring a complete graph; at fewer galaxies the
 # same eight slots are dealt round-robin over the others instead, so a
@@ -90,20 +107,37 @@ START_SCANNING = 2                                      # player starting scanni
 
 HOP = hyperspace_range(START_HYPERSPACE)                # 175.0 - normal travel at game start
 REACH = hyperspace_range(3)                             # 225.0 - the galaxy-wide connectivity floor
+START_SCAN = scanning_range(START_SCANNING)             # 150.0 - what an ordinary star sees at
+                                                        # game start, and the ceiling on how far
+                                                        # a pod can be spread around its capital
 
 # What a post can see once taken, and what it could see on the black hole alone.
 # Filler is kept out of POST_CLEARANCE, so the terrain by itself shows only the
-# contested arc; the array's extra 150u is what buys a view of the approaches.
+# mouth of the lane the post sits at the end of - its player's gateway and
+# nebula. The array's extra 150u is what carries the view on to that player's
+# own frontier.
 POST_SCAN = scanning_range(START_SCANNING + BLACK_HOLE_SCANNING_BONUS
                            + TELESCOPE_SCANNING_BONUS)  # 450.0
 POST_CLEARANCE = scanning_range(START_SCANNING + BLACK_HOLE_SCANNING_BONUS)     # 300.0
 
 # Isolation of every black hole post from the rest of the map. Anything under
 # 225u would be reachable at hyperspace 3 and anything over 275u would need 5,
-# so this has to sit inside that band; it sits above the middle of it because
-# the post also has to stand far enough off that its 450u scan stops short of
-# either neighbour's starting stars, which it clears by ~19u.
-POST_ISOLATION = 265.0
+# so this has to sit inside that band; it sits low in it because the post also
+# has to stand *close* enough that its 450u scan reaches the capital of the
+# player it watches, 435u off, which it clears by 15u.
+#
+# That capital only comes into view because the gateway is anchored to the
+# hyperspace players start on rather than to hyperspace 4. Those two rules -
+# gateway out of a capital's reach, post out of everything's - set a hard floor
+# on how near a post can ever be: capital + GATEWAY_FROM_CAPITAL + POST_ISOLATION.
+# At the old hyperspace-4 gateway that floor was 500u, past the 450u a fresh post
+# can see; at 200u it is 435u, and the capital is inside the bubble.
+POST_ISOLATION = 235.0
+
+# How far out the post itself stands. 435u is the most that still leaves the
+# watched player's capital inside the 450u a fresh post scans; the nebula 290u
+# short of it is the post's nearest neighbour, comfortably past POST_ISOLATION.
+POST_FROM_CAPITAL = 435.0
 
 # The galactic core must be an equal-length prize for all 36 players: reachable
 # from a starting star on hyperspace-1 hops in about CORE_TICK_TARGET ticks, and
@@ -113,10 +147,15 @@ POST_ISOLATION = 265.0
 # multiple of CARRIER_SPEED. Land one on a bucket boundary and the ~1e-6 float
 # noise from rotating each galaxy onto the ring flips some wedges up a whole
 # tick, which silently breaks the symmetry.
+#
+# The run in is walkable on the hyperspace 1 everyone starts with, and a level of
+# hyperspace buys a genuinely shorter road rather than merely a longer jump:
+# CORE_TICK_H2_GAIN ticks come off it. See CORE_BRIDGE_R for how.
 CARRIER_SPEED = 10.0                                    # settings.carriers.baseCarrierSpeed,
                                                         # editor storage.ts (Standard, 0.2 ly/tick)
 CORE_HOP = hyperspace_range(1)                          # 125.0
-CORE_TICK_TARGET = 30
+CORE_TICK_TARGET = 39                                   # on hyperspace 1
+CORE_TICK_H2_GAIN = 3                                   # what hyperspace 2 takes off that
 CORE_TICK_TOLERANCE = 0.10
 CORE_TICK_MARGIN = 3.0
 
@@ -127,21 +166,47 @@ CORE_TICK_MARGIN = 3.0
 # turn. Break that - put one feature off-axis - and every contested star on a
 # midline ends up nearer one player's expansion than the other's, however
 # equidistant it is from their starting stars.
-CAPITAL_R = 409.0                                       # capital distance from the galactic core
-SATELLITE_R = 120.0                                     # satellite ring around the capital
+# The pod, and the lane that runs out of it. Every link along
+# capital -> outer satellite -> nebula -> gateway is inside hyperspace 1, so a
+# player can walk to their own wormhole on the tech they open the game with;
+# what hyperspace 2 buys is speed, not access.
+CAPITAL_R = 468.0                                       # capital distance from the galactic core
+SATELLITE_R = 122.0                                     # satellite ring: one hyperspace-1 hop from
+                                                        # the capital, and inside the 150u that
+                                                        # capital scans at the scanning 2 it starts
+                                                        # on, so nobody opens the game blind
 SATELLITE_ANGLES = (36.0, -36.0, 108.0, -108.0, 180.0)  # mirror-symmetric; 0 is left clear for
                                                         # the nebula, further out on the same ray
 STARTING_STARS = 1 + len(SATELLITE_ANGLES)              # capital + satellites, and nothing else:
                                                         # every other star on the map starts neutral
-FEATURE_R = 215.0                                       # nebula out beyond the satellites,
-FEATURE_ANGLES = (0.0, 180.0)                           # asteroid field in towards the core,
-FEATURE_NAMES = ("nebula", "asteroid")                  # both on the bisector, so both mirrored
 
-# The player's own wormhole sits on the same bisector, just beyond the nebula:
-# the first radius out there that no capital can reach even at hyperspace 4, so
-# it is unmistakably one player's gateway without being a free starting asset.
-# The 0.1u is the same float-noise guard used everywhere else in this file.
-GATEWAY_FROM_CAPITAL = hyperspace_range(4) + 0.1        # 275.1
+# The two feature stars sit on the bisector either side of the capital, but each
+# at its own radius rather than sharing one offset: the nebula is pinned one
+# hyperspace-1 hop off the outer satellites, the asteroid field is pinned to the
+# inner ring, and those two jobs stopped wanting the same number once the ring
+# moved in. FEATURE_NAMES is ordered outward-then-inward.
+NEBULA_FROM_CAPITAL = 145.0                             # 85u on from the outer satellites
+FEATURE_NAMES = ("nebula", "asteroid")
+
+# The player's own gateway is swung off their bisector rather than sitting at the
+# end of it, so the lane out of a pod is no longer capital-nebula-gateway-post in
+# one straight line. It lands beside the pod, level with the outer satellites.
+#
+# This is the one thing on the map that is not mirror-symmetric, and it cannot be:
+# a gateway at +19 degrees would need a twin at -19 to reflect, which means 8
+# gateways and 4 posts - 12 slots - and 12 does not divide over the 8 other
+# galaxies, so the ring stops being a complete graph. Only 0 degrees (the
+# bisector) and 45 (the midline) preserve the mirror, and a midline gateway would
+# be contested rather than the player's own and ~350u from their nearest star.
+# So the galaxy is a pinwheel: a quarter turn maps it onto itself, a reflection
+# does not. Everything that decides fairness survives that - see check().
+#
+# 19 degrees is as far round as it goes: at 20 the hop in from the outer
+# satellite passes 125u and the player can no longer walk to their own wormhole
+# on the hyperspace they start with.
+GATEWAY_R = 570.0
+GATEWAY_BEARING = 19.0
+GATEWAY_MIN_FROM_CAPITAL = HOP + 0.1                    # 175.1 - the floor it has to clear
 
 # Everything contested lives on a midline - the bearing halfway between two
 # neighbouring wedges. Reflecting a galaxy in a midline maps one wedge onto the
@@ -149,43 +214,63 @@ GATEWAY_FROM_CAPITAL = hyperspace_range(4) + 0.1        # 275.1
 # nearer to one of its two players than the other.
 #
 # Going outward: an inner-ring star level with the pods' asteroid fields, the
-# binary, a fringe arc of FRINGE_COUNT stars, then the black hole post. The arc
-# and the binary all sit at exactly POST_ISOLATION from the post, so the post
-# sees all of them and can reach none of them under hyperspace 4; consecutive
-# stars along the arc are one hyperspace-1 hop apart, so the arc is a connected
-# fringe rather than a row of derelicts.
+# binary, then a fringe arc of FRINGE_COUNT stars strung through the binary.
+# The arc is the circle of radius FRINGE_ARC_R whose centre sits further out on
+# the same midline, so it bows gently away from the core and the binary is its
+# innermost point; consecutive stars along it are one hyperspace-1 hop apart, so
+# the arc is a connected fringe rather than a row of derelicts. The radius is
+# only a curvature: nothing sits at its centre.
 FRINGE_COUNT = 4                                        # two mirror pairs flanking the binary
 FRINGE_HOP = 0.9 * hyperspace_range(1)                  # 112.5u - one hyperspace-1 hop, 10% margin
+FRINGE_ARC_R = 265.0
 
 # The inner ring is the pods' four asteroid fields plus one more per midline at
 # the same radius: eight stars evenly spaced around the core instead of four,
 # which is what closes the gaps in the middle of a galaxy.
-INNER_RING_R = CAPITAL_R - FEATURE_R                    # 194.0
+#
+# 173u is the number the whole two-speed run in to the core turns on. It is
+# further out than a hyperspace-1 carrier can jump to the core in one go (125u)
+# and well inside what a hyperspace-2 one can (175u), so the ring is where the
+# two routes part company.
+INNER_RING_R = 173.0
 
-# One filler star per wedge, halfway from the core out to the inward feature.
-# That splits the run to the core into three hops of 95, 97 and 97 units - all
-# inside hyperspace 1, all mid-bucket, 30 ticks end to end:
-#   inner satellite (289) -> asteroid (194) -> bridge (97) -> core (0)
-CORE_BRIDGE_R = (CAPITAL_R - FEATURE_R) / 2.0           # 97.0
+# The run in to the core, and the one place on the map where a level of
+# hyperspace buys a shorter road rather than merely a longer jump.
+#
+# A hyperspace-2 carrier drops straight down the bisector. A hyperspace-1 one
+# cannot make the last 173u, so it has to swing out around a pair of bridge stars
+# set off the bisector and pays three ticks for the detour:
+#
+#   hyperspace 1   346 -> mid 259.5 -> asteroid 173 -> bridge -> core    39 ticks
+#   hyperspace 2   346 ----------->  asteroid 173 ------------> core     36 ticks
+#
+# The bridge is a mirror pair rather than one star on the axis, which is what
+# makes the detour a detour; CORE_BRIDGE_ANGLE is bounded below by the 50u floor
+# between the pair and above by the same floor against the next wedge's pair.
+CORE_MID_R = (CAPITAL_R - SATELLITE_R + INNER_RING_R) / 2.0     # 259.5
+CORE_BRIDGE_R = 104.0
+CORE_BRIDGE_ANGLE = 29.0
 
 # Filler: stochastic, but evaluated in wedge-local coordinates and stamped into
 # all four wedges and both sides of each bisector, so the pockets are identical
 # under a quarter turn and under reflection in any midline.
-FILLER_PAIRS_PER_WEDGE = 4                              # each is a star and its mirror image; the
-                                                        # core bridge star sits on the axis and is
-                                                        # its own mirror, so 9 filler per wedge.
-                                                        # 5 pairs will not fit: with the posts' scan
-                                                        # bubbles walled off, the wedge runs out of
-                                                        # admissible room at the local spacing.
+FILLER_PAIRS_PER_WEDGE = 3                              # each is a star and its mirror image; with
+                                                        # the mid star on the axis and the bridge
+                                                        # pair off it, that is 9 filler per wedge.
+                                                        # 4 pairs will not fit: pulling the rim in
+                                                        # off the old wormhole radius cost the wedge
+                                                        # a fifth of its admissible room.
 FILLER_SEED = 20260810
 FILLER_ATTEMPTS = 20000                                 # dart throws per placement
-FILLER_INNER_R = 90.0
-# Local spacing for the filler field, well above the editor's hard 50u floor.
-# It came down from 85/150 when the inner ring went in: the middle of a galaxy
-# is fuller now, and each throw is checked against all eight of its images, so
-# at the old spacing there was one pocket left in the whole wedge.
-SEPARATION_DENSE = 75.0                                 # min separation where the field is dense
-SEPARATION_SPARSE = 130.0                               # min separation where the field is sparse
+FILLER_INNER_R = 108.0
+# Local spacing for the filler field, well above the editor's hard 50u floor,
+# and as wide as the wedge will take at 3 pairs. It leaves the median gap between
+# neighbouring stars around 112u - inside hyperspace-1 range, so the background
+# field is walkable from the off, with about a quarter of the gaps wanting
+# hyperspace 2. The structural chains are what the two levels are tuned against;
+# the filler only has to not get in their way.
+SEPARATION_DENSE = 80.0                                 # min separation where the field is dense
+SEPARATION_SPARSE = 140.0                               # min separation where the field is sparse
 
 EDGE_GAP = 20.0 * LIGHT_YEAR                            # 1000u between adjacent galaxies
 
@@ -287,9 +372,14 @@ def ticks_for(distance: float) -> int:
     return rules.ticks_by_distance(distance, CARRIER_SPEED)
 
 
-def ticks_to_core(pool: list[dict], start: list[dict], core: dict,
-                  pos: dict[str, tuple[float, float]]) -> float:
-    """Cheapest run from any star in `start` to `core` over hyperspace-1 hops."""
+def ticks_from(pool: list[dict], start: list[dict], target: dict,
+               pos: dict[str, tuple[float, float]], reach: float = CORE_HOP) -> float:
+    """Cheapest run from any star in `start` to `target` over hops of `reach`.
+
+    Defaults to hyperspace 1, the level every player opens the game on. Pass a
+    longer reach to price the same trip at a higher level - the difference is
+    what a level of hyperspace is actually worth on this map.
+    """
     best = {s["id"]: math.inf for s in pool}
     heap: list[tuple[int, str]] = []
     for s in start:
@@ -301,13 +391,13 @@ def ticks_to_core(pool: list[dict], start: list[dict], core: dict,
             continue
         for other in pool:
             gap = dist(pos[sid], pos[other["id"]])
-            if gap > CORE_HOP:
+            if gap > reach:
                 continue
             total = cost + ticks_for(gap)
             if total < best[other["id"]]:
                 best[other["id"]] = total
                 heapq.heappush(heap, (total, other["id"]))
-    return best[core["id"]]
+    return best[target["id"]]
 
 
 WEDGE_STEP = 360.0 / PLAYERS_PER_GALAXY                 # 90 degrees
@@ -330,29 +420,39 @@ def configure(n_galaxies: int) -> None:
     LINKS_PER_GALAXY_PAIR = N_WORMHOLE_SLOTS // (N_GALAXIES - 1)
     OUTPUT = output_for(N_PLAYERS)
 
-# Every player's own wormhole, on their bisector just past their nebula.
-GATEWAY_R = CAPITAL_R + GATEWAY_FROM_CAPITAL            # 684.1
+# The player's own lane, going out along their wedge bisector: capital, nebula,
+# gateway, post. Both wormhole stars sit on it, which is what puts each of them
+# over exactly one player instead of between two.
+NEBULA_R = CAPITAL_R + NEBULA_FROM_CAPITAL                      # 613.0
+# The post stays put. With the gateway swung off the bisector the nearest thing
+# left on the ray is the nebula, 290u in, so POST_ISOLATION stops being what fixes
+# the post's radius and becomes the floor it has to clear. What fixes the radius
+# instead is the far end: it stands as far out as it can while its 450u scan still
+# holds the capital of the player it watches.
+POST_R = CAPITAL_R + POST_FROM_CAPITAL                          # 903.0
 
 # The contested midline, going outward.
 #
 #   binary  on the same ring as the outermost starting stars, so the prize sits
 #           exactly as deep into the map as either player's own frontier.
 #   fringe  FRINGE_COUNT neutral stars, in mirror pairs, on the arc of radius
-#           POST_ISOLATION about the post. FRINGE_STEP is the angle whose chord
-#           on that arc is FRINGE_HOP, so the binary and the arc form a chain of
-#           equal hyperspace-1 links either side of the midline.
-#   post    POST_ISOLATION beyond the binary, so the binary and the whole arc lie
-#           on its scan bubble's inner edge: five neutral stars in view, none of
-#           them reachable from it under hyperspace 4. Filler is kept out of the
-#           bubble, so that arc is the whole of what a post can ever see.
+#           FRINGE_ARC_R centred further out on the same midline. FRINGE_STEP is
+#           the angle whose chord on that arc is FRINGE_HOP, so the binary and
+#           the arc form a chain of equal hyperspace-1 links either side of the
+#           midline. Nothing sits at the arc's centre - it is a curvature, not a
+#           star.
 _OUTER_SATELLITE = polar(SATELLITE_R, SATELLITE_ANGLES[0])
-BINARY_R = math.hypot(CAPITAL_R + _OUTER_SATELLITE[0], _OUTER_SATELLITE[1])      # 511.0
-POST_R = BINARY_R + POST_ISOLATION                      # 761.0
-FRINGE_STEP = math.degrees(2.0 * math.asin(FRINGE_HOP / (2.0 * POST_ISOLATION)))  # 26.0 degrees
+BINARY_R = math.hypot(CAPITAL_R + _OUTER_SATELLITE[0], _OUTER_SATELLITE[1])      # 571.2
+ARC_CENTRE_R = BINARY_R + FRINGE_ARC_R                                          # 836.2
+FRINGE_STEP = math.degrees(2.0 * math.asin(FRINGE_HOP / (2.0 * FRINGE_ARC_R)))  # 24.5 degrees
 
-# The posts are the outermost stars in a galaxy, so the resource curve bottoms
-# out at NR_MIN exactly where they sit.
-FRINGE_R = POST_R
+# The rim: how far out an ordinary star gets. The outer fringe pair on a midline
+# now reaches further than a gateway does, so the wormhole lane sits *inside*
+# the galaxy rather than hanging off it. This is where the resource curve bottoms
+# out at NR_MIN and where the filler field stops; the posts sit past it and clamp
+# to the same NR_MIN.
+_OUTER_FRINGE = polar(FRINGE_ARC_R, 180.0 + (FRINGE_COUNT // 2) * FRINGE_STEP)
+RIM_R = max(GATEWAY_R, math.hypot(ARC_CENTRE_R + _OUTER_FRINGE[0], _OUTER_FRINGE[1]))
 
 
 def midline_bearing(midline: int) -> float:
@@ -368,9 +468,11 @@ def density(pos: tuple[float, float]) -> float:
     """
     r = math.hypot(*pos)
     theta = math.atan2(pos[1], pos[0])
-    v = (0.45 * math.sin(r / 165.0 + 0.7)
+    # The two radial wavelengths are scaled with the galaxy, so the pockets stay
+    # the same fraction of a wedge now that the wedge is a fifth wider.
+    v = (0.45 * math.sin(r / 198.0 + 0.7)
          + 0.35 * math.cos(theta * 2.6 + 1.3)
-         + 0.20 * math.sin(r / 95.0 + theta * 1.9))
+         + 0.20 * math.sin(r / 114.0 + theta * 1.9))
     return min(1.0, max(0.0, 0.5 + 0.5 * v))
 
 
@@ -395,22 +497,26 @@ def new_star(pos: tuple[float, float]) -> dict:
         pos,
         _role=None,
         _wedge=None,        # None for anything on a midline
-        _midline=None,      # None for anything inside a wedge
+        _midline=None,      # None for anything on a wedge bisector
         _slot=None,
     )
 
 
 def wedge_local(role: str) -> tuple[float, float]:
-    """Position of a named wedge object in the wedge's own frame."""
+    """Position of a named wedge object in the wedge's own frame.
+
+    Both features are on the bisector, the nebula outward of the capital and the
+    asteroid field inward on the inner ring, so each is its own mirror image.
+    """
     if role == "capital":
         return (CAPITAL_R, 0.0)
+    if role == "nebula":
+        return (NEBULA_R, 0.0)
+    if role == "asteroid":
+        return (INNER_RING_R, 0.0)
     for angle in SATELLITE_ANGLES:
         if role == f"satellite{angle:+.0f}":
             offset = polar(SATELLITE_R, angle)
-            return (CAPITAL_R + offset[0], offset[1])
-    for angle, name in zip(FEATURE_ANGLES, FEATURE_NAMES):
-        if role == name:
-            offset = polar(FEATURE_R, angle)
             return (CAPITAL_R + offset[0], offset[1])
     raise KeyError(role)
 
@@ -462,12 +568,12 @@ def build_midlines() -> list[dict]:
 
         place((INNER_RING_R, 0.0), "inner")
         place((BINARY_R, 0.0), "binary")
-        # The arc, hung off the post's inner scan edge: step out along it in
-        # FRINGE_HOP chords, alternating sides, so the binary stays its centre.
+        # The arc through the binary: step out along it in FRINGE_HOP chords,
+        # alternating sides, so the binary stays its innermost point.
         for step in range(1, FRINGE_COUNT // 2 + 1):
             for side in (1.0, -1.0):
-                offset = polar(POST_ISOLATION, 180.0 + side * step * FRINGE_STEP)
-                place((POST_R + offset[0], offset[1]), "fringe")
+                offset = polar(FRINGE_ARC_R, 180.0 + side * step * FRINGE_STEP)
+                place((ARC_CENTRE_R + offset[0], offset[1]), "fringe")
     return stars
 
 
@@ -476,25 +582,30 @@ def build_wormholes() -> list[dict]:
 
     Slot k of galaxy g pairs with galaxy g + 1 + (k mod N_GALAXIES - 1), which
     at nine galaxies is one slot to each of the other eight and at two is every
-    slot to the one other galaxy. Even slots are the post, out on midline k // 2
-    past the fringe arc; odd slots are wedge (k // 2)'s own gateway, on its
-    bisector past its nebula. Slot k always meets slot 7 - k, which is of the
+    slot to the one other galaxy. Slot k always meets slot 7 - k, which is of the
     opposite parity, so every wormhole runs gateway to post: one end a star that
-    is plainly some player's, the other unclaimed deep space.
+    is plainly some player's, the other the far end of somebody else's lane.
+
+    Both belong to wedge k // 2. Even slots are its post, straight out along the
+    wedge's own bisector - that is the whole reason a post is over one player
+    rather than between two, since on a midline its scan bubble was necessarily
+    shared by the two wedges either side of it. Odd slots are its gateway, swung
+    GATEWAY_BEARING degrees off that bisector so the lane out of a pod is not one
+    straight line, and near enough in to be walked to at hyperspace 1.
     """
     stars = []
     for slot in range(N_WORMHOLE_SLOTS):
         index = slot // 2
+        bearing = WEDGE_STEP * index
         if slot % 2 == 0:
-            star = new_star(polar(POST_R, midline_bearing(index)))
+            star = new_star(polar(POST_R, bearing))
             star["_role"] = "post"
             star["isBlackHole"] = True                  # +3 scanning from the terrain,
             star["specialistId"] = SPECIALIST_TELESCOPE_ARRAY   # +3 more from the array
-            star["_midline"] = index
         else:
-            star = new_star(polar(GATEWAY_R, WEDGE_STEP * index))
+            star = new_star(polar(GATEWAY_R, bearing + GATEWAY_BEARING))
             star["_role"] = "gateway"
-            star["_wedge"] = index
+        star["_wedge"] = index
         star["_slot"] = slot
         stars.append(star)
     return stars
@@ -547,15 +658,19 @@ def build_filler(seeded: list[dict], wormholes: list[dict]) -> list[dict]:
             occupied.append(pos)
             anchors.append(pos)
 
-    # Bridge star: the galactic core is CAPITAL_R - FEATURE_R from the nearest
-    # wedge star, too far to reach, so one filler per wedge splits the gap.
-    commit((CORE_BRIDGE_R, 0.0), "bridge")
+    # The run in to the core. The mid star sits on the bisector and halves the
+    # gap from the inner satellite to the asteroid; the bridge is a mirror *pair*
+    # set off the bisector, so a hyperspace-1 carrier has to swing around it
+    # while a hyperspace-2 one drops straight from the asteroid to the core.
+    commit((CORE_MID_R, 0.0), "mid")
+    commit(polar(CORE_BRIDGE_R, CORE_BRIDGE_ANGLE), "bridge")
 
     def admissible(p: tuple[float, float]) -> bool:
         # Filler stays out of what a post could see on its black hole alone, so
-        # the terrain by itself shows nothing but the midline binary and fringe
-        # arc it was placed against. What the Telescope Array adds on top of
-        # that is a view of the neutral ground on the approaches.
+        # the terrain by itself shows nothing but its own player's gateway and
+        # nebula. This is also what holds the post's isolation: POST_CLEARANCE
+        # is wider than POST_ISOLATION, so no filler can creep in and become the
+        # post's nearest neighbour.
         if any(dist(p, s) <= POST_CLEARANCE for s in posts):
             return False
         images = images_of(p)
@@ -573,7 +688,7 @@ def build_filler(seeded: list[dict], wormholes: list[dict]) -> list[dict]:
         fallback = None
         for attempt in range(FILLER_ATTEMPTS):
             u = rng.random()
-            r = math.sqrt(u * (FRINGE_R ** 2 - FILLER_INNER_R ** 2) + FILLER_INNER_R ** 2)
+            r = math.sqrt(u * (RIM_R ** 2 - FILLER_INNER_R ** 2) + FILLER_INNER_R ** 2)
             # Half a wedge only: the other half is this throw's mirror image, so
             # sampling both would just be drawing the same pair twice.
             theta = rng.uniform(0.0, WEDGE_STEP / 2.0)
@@ -614,8 +729,11 @@ def build_galaxy() -> list[dict]:
 
 
 def curve(radius: float, exponent: float) -> int:
-    """NR_MIN at the fringe rising to NR_MAX at the galactic core."""
-    t = 1.0 - min(radius, FRINGE_R) / FRINGE_R
+    """NR_MIN at the rim rising to NR_MAX at the galactic core.
+
+    Clamped at RIM_R so the posts, which sit out past it, come to NR_MIN too.
+    """
+    t = 1.0 - min(radius, RIM_R) / RIM_R
     return int(NR_MIN + NR_SPAN * (t ** exponent) + 0.5)
 
 
@@ -688,7 +806,7 @@ def solve_ring_radius(galaxy: list[dict]) -> float:
                         best = min(best, dist(a, b))
         return best
 
-    lo, hi = FRINGE_R, 30000.0
+    lo, hi = POST_R, 30000.0
     for _ in range(200):
         mid = (lo + hi) / 2.0
         if min_gap(mid) < EDGE_GAP:
@@ -801,8 +919,8 @@ def check(stars: list[dict], players: list[dict]) -> None:
         galaxies.setdefault(s["_galaxy"], []).append(s)
 
     # --- counts and identity ---
-    per_wedge = (1 + len(SATELLITE_ANGLES) + len(FEATURE_ANGLES)      # pod and its plain stars
-                 + 1 + 2 * FILLER_PAIRS_PER_WEDGE                     # bridge and filler
+    per_wedge = (1 + len(SATELLITE_ANGLES) + len(FEATURE_NAMES)       # pod and its plain stars
+                 + 1 + 2 + 2 * FILLER_PAIRS_PER_WEDGE                 # mid, bridge pair, filler
                  + 2 + FRINGE_COUNT)                                  # one midline, inner ring out
     per_galaxy = 1 + PLAYERS_PER_GALAXY * per_wedge + N_WORMHOLE_SLOTS
     require(len(stars) == N_GALAXIES * per_galaxy, f"unexpected star count {len(stars)}")
@@ -900,8 +1018,20 @@ def check(stars: list[dict], players: list[dict]) -> None:
             f"expected {N_PLAYERS} inner-ring midline stars, got {len(inner)}")
     for s in binaries + fringe + posts + inner:
         require(s["playerId"] is None, f"{s['_role']} {s['id']} starts owned")
-    for s in binaries + posts + inner:
+    for s in binaries + inner:
         require_midline(s, s["_role"])
+
+    # The arc is worth working along: every fringe star is one hyperspace-1 hop
+    # from another star on its own midline, so the whole chain binary-to-rim is
+    # walkable. Nothing overlooks it any more, so this is checked here rather
+    # than falling out of what a post can see.
+    for s in fringe:
+        lane = [o for o in stars if o["_galaxy"] == s["_galaxy"]
+                and o["_midline"] == s["_midline"] and o["id"] != s["id"]]
+        hop = min(dist(pos[s["id"]], pos[o["id"]]) for o in lane)
+        require(hop <= CORE_HOP,
+                f"fringe star {s['id']} is {hop:.1f}u from the nearest star on its own "
+                f"midline, more than one hyperspace-1 hop ({CORE_HOP}u)")
 
     # The fringe arc balances as a set rather than star by star: its members sit
     # off the axis in mirror pairs, so what has to match is the whole spread of
@@ -943,48 +1073,65 @@ def check(stars: list[dict], players: list[dict]) -> None:
         ring_of(("binary",), BINARY_R, PLAYERS_PER_GALAXY, "binary")
         ring_of(("inner", "asteroid"), INNER_RING_R, 2 * PLAYERS_PER_GALAXY, "inner")
 
-    # --- posts: isolated, and looking at nothing but contested ground ---
+    # --- posts: isolated, and looking at exactly one player ---
     reached = []
     for s in posts:
         ranked = sorted(((dist(pos[s["id"]], pos[o["id"]]), o) for o in stars if o["id"] != s["id"]),
                         key=lambda t: t[0])
         nearest = ranked[0][0]
         require(s["isBlackHole"], f"post {s['id']} is not a black hole")
-        require(abs(nearest - POST_ISOLATION) < 1e-3,
-                f"post {s['id']} nearest neighbour is {nearest:.3f}, expected {POST_ISOLATION}")
-        require(hyperspace_level(nearest) == 4,
-                f"post {s['id']} needs hyperspace {hyperspace_level(nearest)}, expected 4")
-        # On the black hole alone: the midline's binary and fringe arc, nothing
-        # else. The Telescope Array widens that to POST_SCAN, which reaches out
-        # over the neutral approaches but still stops short of either
-        # neighbour's starting stars.
-        close = [o for d, o in ranked if d <= POST_CLEARANCE]
-        require(len(close) == 1 + FRINGE_COUNT,
-                f"post {s['id']} sees {len(close)} stars on its black hole alone, "
-                f"expected the binary and {FRINGE_COUNT} fringe stars")
-        for o in close:
-            require(o["_role"] in ("binary", "fringe") and o["_midline"] == s["_midline"],
-                    f"post {s['id']} sees a {o['_role']} star that is not its own "
-                    f"contested ground")
-            # Fringe worth having: each one is a hyperspace-1 hop from a
-            # neighbour, so the arc is a place a fleet can work along.
-            hop = min(dist(pos[o["id"]], pos[n["id"]]) for n in stars
-                      if n["id"] != o["id"] and n["_role"] != "post")
-            require(hop <= CORE_HOP,
-                    f"star {o['id']} in a post's view is {hop:.1f}u from its nearest "
-                    f"neighbour, more than one hyperspace-1 hop ({CORE_HOP}u)")
+        require(nearest >= POST_ISOLATION - 1e-3,
+                f"post {s['id']} nearest neighbour is {nearest:.3f}, inside the "
+                f"{POST_ISOLATION}u floor")
+        require(hyperspace_level(nearest) >= 4,
+                f"post {s['id']} is reachable at hyperspace {hyperspace_level(nearest)} - "
+                f"the wormhole has to be the only way onto it")
 
+        watched = str(s["_galaxy"] * PLAYERS_PER_GALAXY + s["_wedge"] + 1)
+
+        # On the black hole alone: the near end of the wedge it looks down, and
+        # nothing outside it. The Telescope Array widens that to POST_SCAN, which
+        # is what carries the view on over the same player's capital.
+        close = [o for d, o in ranked if d <= POST_CLEARANCE]
+        for o in close:
+            require(o["_galaxy"] == s["_galaxy"] and o["_wedge"] == s["_wedge"],
+                    f"post {s['id']} sees a {o['_role']} star on its black hole alone that "
+                    f"is not part of player {watched}'s own wedge")
+        require({o["_role"] for o in close} == {"nebula"},
+                f"post {s['id']} sees {sorted({o['_role'] for o in close})} on its black "
+                f"hole alone, expected only its player's nebula")
+
+        # The point of the whole rearrangement: everything owned that a post can
+        # see belongs to one player, and it is the player whose bisector it sits
+        # on. Come through the wormhole and you are behind exactly one of them.
         visible = [o for d, o in ranked if d <= POST_SCAN]
-        require(all(o["playerId"] is None for o in visible),
-                f"post {s['id']} has an owned star inside its scan bubble")
-        # Whatever else it can see, it sees the same on both sides: reflecting
-        # the galaxy in this post's own midline maps its view onto itself, so
-        # neither neighbour is watched more closely than the other.
+        owners = {o["playerId"] for o in visible if o["playerId"] is not None}
+        require(owners == {watched},
+                f"post {s['id']} sits on player {watched}'s bisector but its scan bubble "
+                f"holds the stars of player(s) {sorted(owners) or 'nobody'}")
+        # And it has to be worth coming through. Pulling the lane in off the rim
+        # brought the capital itself inside the bubble, so what a taken post
+        # reads is that player's home star and the two satellites on the
+        # frontier facing it - three of their six opening stars.
+        seen_owned = {o["_role"] for o in visible if o["playerId"]}
+        require(seen_owned == {"capital", "satellite"},
+                f"post {s['id']} sees owned stars of kind {sorted(seen_owned)}, "
+                f"expected the watched player's capital and satellites")
+        outer = [o for o in visible if o["_role"] == "satellite"]
+        require(len(outer) == 2,
+                f"post {s['id']} sees {len(outer)} of player {watched}'s satellites, "
+                f"expected the 2 nearest it")
+
+        # Whatever it can see, it sees the same on both sides: reflecting the
+        # galaxy in the bisector the post sits on maps its view onto itself, so
+        # the watched player is watched evenly rather than down one flank. The
+        # gateways are the one thing that has a handedness now, so they are
+        # exempt - a post sees its player's gateway off to one side by design.
         core = next(o for o in galaxies[s["_galaxy"]] if o["_role"] == "core")
         centre, axis_point = pos[core["id"]], pos[s["id"]]
         axis = math.degrees(math.atan2(axis_point[1] - centre[1], axis_point[0] - centre[0]))
         seen = {o["id"] for o in visible}
-        for o in visible:
+        for o in (o for o in visible if o["_role"] != "gateway"):
             local = rotate((pos[o["id"]][0] - centre[0], pos[o["id"]][1] - centre[1]), -axis)
             image = rotate((local[0], -local[1]), axis)
             twin = min(galaxies[s["_galaxy"]],
@@ -992,7 +1139,7 @@ def check(stars: list[dict], players: list[dict]) -> None:
                                            pos[t["id"]][1] - centre[1]), image))
             require(twin["id"] in seen,
                     f"post {s['id']} sees star {o['id']} but not its mirror image "
-                    f"across the midline")
+                    f"across the bisector")
 
     require(all(s["isBlackHole"] == (s["_role"] == "post") for s in stars),
             "a black hole sits somewhere other than a post")
@@ -1012,17 +1159,20 @@ def check(stars: list[dict], players: list[dict]) -> None:
         require(ranked[0][0] < ranked[1][0] - MIN_STAR_SEPARATION,
                 f"gateway {gw['id']} is not clearly closer to one capital than the next: "
                 f"{ranked[0][0]:.1f}u vs {ranked[1][0]:.1f}u")
-        # Past hyperspace 4 from every capital, so no player simply starts with
-        # one - but a short hop on from their own nebula.
-        require(hyperspace_level(ranked[0][0]) > 4,
-                f"gateway {gw['id']} is {ranked[0][0]:.1f}u from its capital, inside "
-                f"hyperspace {hyperspace_level(ranked[0][0])}")
-        nebula = next(o for o in stars if o["_role"] == "nebula"
-                      and o["_galaxy"] == gw["_galaxy"] and o["_wedge"] == gw["_wedge"])
-        gap = dist(pos[gw["id"]], pos[nebula["id"]])
-        require(hyperspace_level(gap) == 1,
-                f"gateway {gw['id']} is {gap:.1f}u from its own pod's nebula, hyperspace "
-                f"{hyperspace_level(gap)}")
+        # Out of reach of every capital at the hyperspace players start on, so
+        # nobody simply opens the game holding one - but one hyperspace-1 hop off
+        # the edge of their own pod, so they can walk to it unaided.
+        require(ranked[0][0] >= GATEWAY_MIN_FROM_CAPITAL,
+                f"gateway {gw['id']} is {ranked[0][0]:.1f}u from its capital, inside the "
+                f"{GATEWAY_MIN_FROM_CAPITAL}u floor")
+        require(hyperspace_level(ranked[0][0]) > START_HYPERSPACE,
+                f"gateway {gw['id']} is {ranked[0][0]:.1f}u from its capital - reachable at "
+                f"the hyperspace {START_HYPERSPACE} its player starts on")
+        pod = [o for o in stars if o["playerId"] == owner]
+        gap = min(dist(pos[gw["id"]], pos[o["id"]]) for o in pod)
+        require(gap <= CORE_HOP,
+                f"gateway {gw['id']} is {gap:.1f}u from the nearest star of the pod it "
+                f"belongs to, more than one hyperspace-1 hop ({CORE_HOP}u)")
         reached.append(post["id"])
     require(len(set(reached)) == N_PLAYERS, "two gateways lead to the same post")
 
@@ -1119,11 +1269,18 @@ def check(stars: list[dict], players: list[dict]) -> None:
             for a, b in zip(signature, reference))
         require(same, f"galaxy {g} is not congruent to galaxy 0")
 
-    # Dihedral symmetry inside a galaxy: a quarter turn about the core, and a
-    # reflection in any midline, must each map it onto itself - resources and
-    # role included. The reflection is the one that matters for fairness: it is
-    # what makes a midline star's surroundings identical on both sides, so no
-    # contested star sits nearer one player's expansion than the other's.
+    # Symmetry inside a galaxy. A quarter turn about the core maps it onto itself
+    # entirely - that is what makes all 36 players' positions the same position,
+    # turned. Reflection in a midline maps it onto itself too, with the single
+    # exception of the gateways, which are swung off their bisectors and so have
+    # a handedness: the galaxy is a pinwheel rather than a mirror.
+    #
+    # The reflection is the one fairness leans on, because it is what makes a
+    # midline star's surroundings identical on both sides. It still does, for
+    # everything a contested star is measured against: the pods, the terrain, the
+    # resource field and the posts are all still mirror images. Only which side
+    # of its own bisector a gateway sits on flips, and require_midline below
+    # proves directly that nothing contested moved as a result.
     for g, members in galaxies.items():
         core = next(s for s in members if s["_role"] == "core")
         centre = pos[core["id"]]
@@ -1142,9 +1299,13 @@ def check(stars: list[dict], players: list[dict]) -> None:
             return rotate((turned[0], -turned[1]), axis)
 
         for flip, name in ((False, "quarter turn"), (True, "midline reflection")):
-            for point, s in local:
+            # The quarter turn is required of every star. The reflection is
+            # required of every star except the gateways, whose whole point now is
+            # to sit off-axis; they are checked against the quarter turn only.
+            pool = [t for t in local if not (flip and t[1]["_role"] == "gateway")]
+            for point, s in pool:
                 image = image_of(point, flip)
-                twin_point, twin = min(local, key=lambda t: dist(t[0], image))
+                twin_point, twin = min(pool, key=lambda t: dist(t[0], image))
                 require(dist(twin_point, image) < 1e-3,
                         f"galaxy {g}: nothing sits at the {name} of star {s['id']}")
                 require(twin["_role"] == s["_role"],
@@ -1158,6 +1319,8 @@ def check(stars: list[dict], players: list[dict]) -> None:
     # player's own 6 stars, 2 features and gateway reachable from their capital
     # at the hyperspace 2 they start on.
     core_ticks: list[float] = []
+    core_ticks_h2: list[float] = []
+    gateway_ticks: list[float] = []
     for members in galaxies.values():
         pool = [s for s in members if s["_role"] != "post"]
         core = next(s for s in members if s["_role"] == "core")
@@ -1175,11 +1338,22 @@ def check(stars: list[dict], players: list[dict]) -> None:
                 f"{len(pool) - len(reachable)} stars unreachable at hyperspace 3")
 
         # The core is an equal prize: same tick cost from every player's start,
-        # on hyperspace-1 hops, at about CORE_TICK_TARGET ticks.
+        # on hyperspace-1 hops, at about CORE_TICK_TARGET ticks - and the same
+        # trip priced at hyperspace 2, which has to come out strictly quicker.
         for w in range(PLAYERS_PER_GALAXY):
             start = [s for s in members
                      if s["_wedge"] == w and s["_role"] in ("capital", "satellite")]
-            core_ticks.append(ticks_to_core(pool, start, core, pos))
+            core_ticks.append(ticks_from(pool, start, core, pos))
+            core_ticks_h2.append(ticks_from(pool, start, core, pos, HOP))
+
+            # ...and the player's own gateway is walkable at hyperspace 1 too, so
+            # the wormhole is somewhere they can actually get to unaided.
+            gateway = next(s for s in members
+                           if s["_role"] == "gateway" and s["_wedge"] == w)
+            reach_gw = ticks_from(pool, start, gateway, pos)
+            require(reach_gw < math.inf,
+                    f"wedge {w}: no hyperspace-1 route from the pod to its own gateway")
+            gateway_ticks.append(reach_gw)
 
         for w in range(PLAYERS_PER_GALAXY):
             home = [s for s in members if s["_wedge"] == w and s["_role"] in
@@ -1199,23 +1373,65 @@ def check(stars: list[dict], players: list[dict]) -> None:
                     f"wedge {w}: {len(home) - len(seen)} starting stars need more than "
                     f"hyperspace {START_HYPERSPACE}")
 
+            # A capital scans its whole pod on the scanning it starts with. The
+            # satellite ring is the widest thing the galaxy's scale pushes on,
+            # so this is what stops a bigger galaxy opening the game with every
+            # player blind inside their own starting position.
+            blind = [s for s in home if s["_role"] == "satellite"
+                     and dist(pos[capital["id"]], pos[s["id"]]) > START_SCAN]
+            require(not blind,
+                    f"wedge {w}: capital cannot see {len(blind)} of its own satellites at "
+                    f"the scanning {START_SCANNING} it starts on ({START_SCAN}u)")
+
     require(len(core_ticks) == N_PLAYERS, "core route not measured for every player")
     require(len(set(core_ticks)) == 1,
             f"players have unequal routes to their core: {sorted(set(core_ticks))} ticks")
     lo = CORE_TICK_TARGET * (1.0 - CORE_TICK_TOLERANCE)
     hi = CORE_TICK_TARGET * (1.0 + CORE_TICK_TOLERANCE)
     require(lo <= core_ticks[0] <= hi,
-            f"core is {core_ticks[0]} ticks from a starting star, want "
+            f"core is {core_ticks[0]} ticks from a starting star at hyperspace 1, want "
             f"{CORE_TICK_TARGET} +/-{CORE_TICK_TOLERANCE:.0%} ({lo:.0f}-{hi:.0f})")
 
-    # Every hop on the core chain must sit mid-bucket, or float noise flips a
-    # wedge into the next tick and the routes stop being equal.
-    for gap in (FEATURE_R - SATELLITE_R, CORE_BRIDGE_R, CAPITAL_R - FEATURE_R - CORE_BRIDGE_R):
+    # Hyperspace has to buy a shorter road, not merely a longer jump: the same
+    # trip priced at hyperspace 2 comes out CORE_TICK_H2_GAIN ticks quicker,
+    # equally for every player.
+    require(len(set(core_ticks_h2)) == 1,
+            f"players have unequal hyperspace-2 routes to their core: "
+            f"{sorted(set(core_ticks_h2))} ticks")
+    require(core_ticks[0] - core_ticks_h2[0] == CORE_TICK_H2_GAIN,
+            f"hyperspace 2 takes {core_ticks[0] - core_ticks_h2[0]} ticks off the core run "
+            f"({core_ticks[0]} -> {core_ticks_h2[0]}), want {CORE_TICK_H2_GAIN}")
+
+    # And every player can walk to their own wormhole on the hyperspace 1 they
+    # start with, in the same number of ticks as everyone else.
+    require(len(gateway_ticks) == N_PLAYERS, "gateway route not measured for every player")
+    require(len(set(gateway_ticks)) == 1,
+            f"players have unequal hyperspace-1 routes to their own gateway: "
+            f"{sorted(set(gateway_ticks))} ticks")
+
+    # Every hop on the hyperspace-1 core chain must sit mid-bucket, or float
+    # noise flips a wedge into the next tick and the routes stop being equal.
+    # The hyperspace-2 shortcut (the asteroid's straight drop to the core) is
+    # held to the same standard for the same reason.
+    _inner_satellite = CAPITAL_R - SATELLITE_R
+    _bridge = polar(CORE_BRIDGE_R, CORE_BRIDGE_ANGLE)
+    chain = [(_inner_satellite - CORE_MID_R, CORE_HOP),
+             (CORE_MID_R - INNER_RING_R, CORE_HOP),
+             (dist((INNER_RING_R, 0.0), _bridge), CORE_HOP),
+             (CORE_BRIDGE_R, CORE_HOP),
+             (_inner_satellite - INNER_RING_R, HOP),
+             (INNER_RING_R, HOP)]
+    for gap, limit in chain:
         edge = min(gap % CARRIER_SPEED, CARRIER_SPEED - (gap % CARRIER_SPEED))
         require(edge >= CORE_TICK_MARGIN,
-                f"core chain hop of {gap}u sits {edge:.1f}u from a tick boundary, "
+                f"core chain hop of {gap:.1f}u sits {edge:.1f}u from a tick boundary, "
                 f"want >= {CORE_TICK_MARGIN}u")
-        require(gap <= CORE_HOP, f"core chain hop of {gap}u exceeds hyperspace 1 ({CORE_HOP}u)")
+        require(gap <= limit, f"core chain hop of {gap:.1f}u exceeds its {limit}u budget")
+    # The whole point of the split: a hyperspace-1 carrier cannot make the last
+    # drop and has to go round the bridge pair instead.
+    require(INNER_RING_R > CORE_HOP,
+            f"the inner ring at {INNER_RING_R}u is inside hyperspace 1, so there is no "
+            f"detour for hyperspace 2 to save and both routes cost the same")
 
     # --- no player starts with a better hand than any other ---
     # The galaxy as each of the 36 players sees it: every star in it, how far
@@ -1300,35 +1516,48 @@ def main() -> None:
           f"{LINKS_PER_GALAXY_PAIR} link(s) between every pair of galaxies")
     print(f"starting stars      {STARTING_STARS} per player "
           f"({N_PLAYERS * STARTING_STARS} owned, {len(stars) - N_PLAYERS * STARTING_STARS} neutral)")
-    print(f"fringe radius       {FRINGE_R:.2f}u ({FRINGE_R / LIGHT_YEAR:.1f} LY)")
+    print(f"galaxy radius       {RIM_R:.2f}u to the rim ({RIM_R / LIGHT_YEAR:.1f} LY), "
+          f"{POST_R:.2f}u to a post")
     gateway = next(s for s in galaxy0 if s["_role"] == "gateway")
     capital = next(s for s in galaxy0 if s["_role"] == "capital"
                    and s["_wedge"] == gateway["_wedge"])
-    nebula = next(s for s in galaxy0 if s["_role"] == "nebula"
-                  and s["_wedge"] == gateway["_wedge"])
     to_capital = dist(pos[gateway["id"]], pos[capital["id"]])
-    to_nebula = dist(pos[gateway["id"]], pos[nebula["id"]])
     print(f"midlines            {PLAYERS_PER_GALAXY} per galaxy, {WEDGE_STEP:.0f} degrees apart, "
           f"each a mirror axis: inner ring {INNER_RING_R:.0f}u, binary {BINARY_R:.0f}u, "
-          f"{FRINGE_COUNT} fringe stars, post {POST_R:.0f}u from the core")
+          f"{FRINGE_COUNT} fringe stars {FRINGE_HOP:.1f}u apart along the arc")
     print(f"inner ring          {2 * PLAYERS_PER_GALAXY} stars at {INNER_RING_R:.0f}u, "
           f"{360 / (2 * PLAYERS_PER_GALAXY):.0f} degrees apart - the four pods' asteroid fields "
           f"and one more on each midline")
-    print(f"gateways            one per player on their own bisector: {to_nebula:.1f}u past "
-          f"their nebula (hyperspace {hyperspace_level(to_nebula)}), {to_capital:.1f}u from "
-          f"their capital (hyperspace {hyperspace_level(to_capital)})")
+    pod0 = [s for s in galaxy0 if s["playerId"] == capital["playerId"]]
+    to_pod = min(dist(pos[gateway["id"]], pos[s["id"]]) for s in pod0)
+    print(f"gateways            one per player, swung {GATEWAY_BEARING:.0f} degrees off their "
+          f"bisector at {GATEWAY_R:.0f}u: {to_pod:.1f}u off the edge of their pod "
+          f"(hyperspace {hyperspace_level(to_pod)}), {to_capital:.1f}u from their capital "
+          f"(hyperspace {hyperspace_level(to_capital)})")
     post = next(s for s in galaxy0 if s["_role"] == "post")
+    watched = {s["playerId"] for s in galaxy0 if s["playerId"] is not None
+               and dist(pos[post["id"]], pos[s["id"]]) <= POST_SCAN}
     post_owned = min(dist(pos[post["id"]], pos[o["id"]]) for o in galaxy0
                      if o["playerId"] is not None)
-    print(f"post isolation      {POST_ISOLATION}u = hyperspace "
-          f"{hyperspace_level(POST_ISOLATION)}; the black hole alone shows the binary and all "
-          f"{FRINGE_COUNT} fringe stars, {FRINGE_HOP:.1f}u apart along the arc")
+    post_near = min(dist(pos[post["id"]], pos[o["id"]]) for o in galaxy0
+                    if o["id"] != post["id"])
+    print(f"post isolation      {post_near:.0f}u to its nearest neighbour = hyperspace "
+          f"{hyperspace_level(post_near)}; the black hole alone shows nothing but its own "
+          f"player's nebula")
     print(f"post scan           {POST_SCAN:.0f}u once taken (black hole +"
-          f"{BLACK_HOLE_SCANNING_BONUS}, Telescope Array +{TELESCOPE_SCANNING_BONUS}), and the "
-          f"nearest starting star of either neighbour is {post_owned:.0f}u away")
-    chain = [FEATURE_R - SATELLITE_R, CORE_BRIDGE_R, CAPITAL_R - FEATURE_R - CORE_BRIDGE_R]
-    print(f"core run            {sum(ticks_for(g) for g in chain)} ticks, identical for all "
-          f"{N_PLAYERS} players (hops {'+'.join(f'{g:.0f}u' for g in chain)}, hyperspace 1)")
+          f"{BLACK_HOLE_SCANNING_BONUS}, Telescope Array +{TELESCOPE_SCANNING_BONUS}), holding "
+          f"{len(watched)} player's starting stars - nearest {post_owned:.0f}u away")
+    core = next(s for s in galaxy0 if s["_role"] == "core")
+    pool = [s for s in galaxy0 if s["_role"] != "post"]
+    pod = [s for s in galaxy0 if s["_wedge"] == gateway["_wedge"]
+           and s["_role"] in ("capital", "satellite")]
+    h1 = ticks_from(pool, pod, core, pos)
+    h2 = ticks_from(pool, pod, core, pos, HOP)
+    print(f"core run            {h1:.0f} ticks at hyperspace 1, {h2:.0f} at hyperspace 2 "
+          f"({h1 - h2:.0f} saved by going straight down the bisector instead of round the "
+          f"bridge pair) - identical for all {N_PLAYERS} players")
+    print(f"gateway run         {ticks_from(pool, pod, gateway, pos):.0f} ticks at hyperspace 1 "
+          f"from the pod, via the outer satellite and the nebula")
     print(f"resource curve      NR = {NR_MIN} + {NR_SPAN} * (1 - r/R)^{exponent:.3f}")
     for channel in ("economy", "industry", "science"):
         values = [s["naturalResources"][channel] for s in stars]
@@ -1474,7 +1703,7 @@ def render_figures(data: dict) -> None:
                 if geometry.dist(_point(s), (fx, fy)) < POST_R + 200]
         named = [
             ("capital", next((s for s in here if s["homeStar"]), None)),
-            ("spy post: +6 scanning, reachable only by wormhole",
+            ("spy post: +6 scanning over this player alone, wormhole access only",
              next((s for s in here if s["isBlackHole"]), None)),
             ("wormhole gateway",
              next((s for s in here if s["wormHoleToStarId"] and not s["isBlackHole"]), None)),

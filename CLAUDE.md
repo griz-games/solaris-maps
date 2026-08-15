@@ -63,7 +63,7 @@ python -m http.server -d docs                        # preview the site; fetch()
 themselves, so they run from anywhere.
 
 **Determinism is the regression test.** `python maps/spy_v_spy.py` reproduces `out/spy_v_spy.json` byte for
-byte — md5 `3d0adf577661be931bf1ef91bae96fde`. If that changes and you did not change the layout deliberately,
+byte — md5 `65bec4a2b2ace345264162effc34902d`. If that changes and you did not change the layout deliberately,
 something broke.
 
 ## Conventions
