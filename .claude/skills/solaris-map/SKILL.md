@@ -14,6 +14,7 @@ Python script in `maps/`, not by hand: hand-editing 900 stars is how invariants 
 python maps/<name>.py                          # build; it validates as it writes
 python -m solarismap validate out/<name>.json  # exit 1 if Solaris would reject it
 python -m solarismap inspect  out/<name>.json  # balance, spacing, reach, scanning
+python -m solarismap metrics  out/<name>.json  # fairness, compactness, novelty
 python -m solarismap render   out/<name>.json -o out/<name>.svg
 ```
 
@@ -27,11 +28,13 @@ Keep these apart; conflating them is how a technically-valid unplayable map ship
 
 - **`validate` — will Solaris load this?** Field types, the hard limits, the semantic rules.
   Binary answer, no judgement. A map must always pass.
-- **`inspect` and the builder's own checks — is this the map I meant?** Are the players
-  balanced, is anything marooned, is contested ground actually equidistant. Judgement
+- **`inspect`, `metrics` and the builder's own checks — is this the map I meant?** Are the
+  players balanced, is anything marooned, is contested ground actually equidistant. Judgement
   required, and the builder is where map-specific invariants belong. Look at
   `report()` in `maps/example.py` and `check()` in `maps/spy_v_spy.py` for the pattern:
-  compute the property, print it, and fail the build if it is wrong.
+  compute the property, print it, and fail the build if it is wrong. `metrics` is the
+  impartial half of this: eleven statistics that score any map without knowing what it
+  meant to be, and never fail anything. See [METRICS.md](../../../METRICS.md).
 
 ## Rules that are not negotiable
 
@@ -70,6 +73,7 @@ formula — do not reuse one for the other.
 | `model` | `new_star`, `set_resources`, `make_home_star`, `link_wormhole`, `new_player`, `assign_ids`, `galaxy`, `write` |
 | `validate` | `validate(data).raise_for_errors()` |
 | `inspect` | `report(data)` — the same numbers the CLI prints |
+| `metrics` | `summary(data)` — fairness spreads, compactness, novelty; `read(data)` first if you want them one at a time |
 | `render` | `draw(data, options, annotate_over=...)` |
 | `specialists` | `by_name("Telescope Array")`, `scanning_bonus(id)`, `is_custom_star_specialist(id)` |
 

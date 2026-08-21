@@ -17,3 +17,4 @@ out/*_targets.json
 
 *.env
 /testing/
+figures/compare-resources.svg

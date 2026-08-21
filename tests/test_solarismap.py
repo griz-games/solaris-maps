@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from solarismap import (cli, geometry, inspect, model, render,          # noqa: E402
+from solarismap import (cli, geometry, inspect, metrics, model, render,  # noqa: E402
                         rules, specialists, validate)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -417,6 +417,166 @@ for path in render.NEBULA_PNGS + render.ASTEROID_PNGS + [render.VORTEX_PNG]:
     check(f"vendored texture {path.name} exists", path.exists())
 check("the Telescope Array icon is vendored",
       render.specialist_icon(specialists.by_name("Telescope Array")["key"]).exists())
+
+# --------------------------------------------------------------------------
+# metrics - the reducers first, which are plain statistics and easy to pin
+# --------------------------------------------------------------------------
+
+check("spread of identical values is 0", metrics.spread([4, 4, 4]) == 0.0)
+check("spread is (max - min) / mean", metrics.spread([1, 3]) == 1.0)
+check("spread of nothing measurable is None", metrics.spread([None, math.inf]) is None)
+check("spread ignores an unreachable player", metrics.spread([1, 3, math.inf]) == 1.0)
+check("ratio is max / min", metrics.ratio([2, 8]) == 4.0)
+check("ratio is None when the worst player has zero", metrics.ratio([0, 8]) is None)
+check("band is (worst, typical, best)", metrics.band([5, 1, 3]) == (1, 3, 5))
+
+hundred = list(range(101))
+check("percentile interpolates", metrics.percentile(hundred, 0.10) == 10)
+stat = metrics.summarise(hundred)
+check("summarise centres on the median", stat["median"] == 50)
+check("summarise reports a p10-p90 interval", (stat["p10"], stat["p90"]) == (10, 90))
+check("summarise brackets the interval inside min and max",
+      stat["min"] <= stat["p10"] <= stat["q1"] <= stat["median"]
+      <= stat["q3"] <= stat["p90"] <= stat["max"])
+# The interval is a percentile interval of the draws, not a CI on the mean, so
+# measuring ten times as many maps must not narrow it. A CI would shrink by ~3x.
+check("the interval does not shrink with more draws",
+      metrics.summarise([i / 10 for i in range(1001)])["p90"] == stat["p90"])
+check("summarise drops infinities", metrics.summarise([1, 2, math.inf])["n"] == 2)
+check("prob_better is 0.5 for identical conditions",
+      metrics.prob_better([1, 2, 3], [1, 2, 3]) == 0.5)
+check("prob_better is 1.0 when every draw wins",
+      metrics.prob_better([5, 6], [1, 2]) == 1.0)
+check("prob_better respects the direction",
+      metrics.prob_better([5, 6], [1, 2], lower_is_better=False) == 0.0)
+
+# --- geometry the statistics lean on ---
+square = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+check("convex hull drops an interior point",
+      len(metrics.convex_hull(square + [(0.5, 0.5)])) == 4)
+area, perimeter, quotient = metrics.hull_shape(square)
+check("hull area of the unit square is 1", abs(area - 1.0) < 1e-9)
+check("hull perimeter of the unit square is 4", abs(perimeter - 4.0) < 1e-9)
+check("roundness of a square is pi/4", abs(quotient - math.pi / 4) < 1e-9)
+circle = [geometry.polar(100.0, a * 3.6) for a in range(100)]
+check("roundness of a circle approaches 1", metrics.hull_shape(circle)[2] > 0.999)
+
+# A path: every interior vertex is a cut vertex. A cycle: none of them are.
+path = [[(1, 1.0)], [(0, 1.0), (2, 1.0)], [(1, 1.0), (3, 1.0)], [(2, 1.0)]]
+check("articulation points of a path are its interior",
+      metrics.articulation_points(path) == {1, 2})
+cycle = [[(1, 1.0), (3, 1.0)], [(0, 1.0), (2, 1.0)],
+         [(1, 1.0), (3, 1.0)], [(2, 1.0), (0, 1.0)]]
+check("a cycle has no articulation points", not metrics.articulation_points(cycle))
+
+# --- reading a map ---
+# A congruent map small enough to work out by hand: seven stars in a line at
+# 60-80u spacing, so the whole galaxy is one piece at hyperspace 1 (125u), and
+# a mirror through the origin maps each player onto the other.
+line_stars = [model.new_star((x, 0.0))
+              for x in (-200.0, -140.0, -60.0, 0.0, 60.0, 140.0, 200.0)]
+model.assign_ids(line_stars)
+for star in line_stars:
+    model.set_resources(star, 25)
+mirrored_players = []
+for pod, (home, mate) in enumerate(((0, 1), (6, 5))):
+    model.make_home_star(line_stars[home], str(pod + 1), ships=10,
+                         economy=5, industry=5, science=1)
+    line_stars[mate]["playerId"] = str(pod + 1)
+    model.set_ships(line_stars[mate], 10)
+    mirrored_players.append(model.new_player(str(pod + 1), line_stars[home]["id"]))
+mirrored = model.galaxy(line_stars, mirrored_players)
+
+reading = metrics.read(mirrored)
+check("read finds one capital per player", reading.player_count == 2)
+check("read takes hyperspace from the players",
+      reading.hyperspace == model.DEFAULT_TECHNOLOGIES["hyperspace"])
+check("read reports a connected galaxy connected at the opening jump",
+      reading.connected_at_start and reading.marooned == 0)
+check("fronts counts rival territory, not capital distance",
+      metrics.fronts(reading) == [1, 1])
+check("a congruent map has zero situation divergence",
+      metrics.situation_divergence(reading) == 0.0)
+check("every fairness statistic returns one value per player",
+      all(len(v) == 2 for v in metrics.per_player(reading).values()))
+check("a mirrored map is exactly even on contested resources",
+      metrics.spread(metrics.contested_resources(reading)) == 0.0)
+check("first contact is the same both ways",
+      len(set(metrics.first_contact(reading))) == 1)
+
+basic = copy.deepcopy(mirrored)
+del basic["players"]
+check("read falls back to hyperspace 1 in basic mode",
+      metrics.read(basic).hyperspace == metrics.DEFAULT_HYPERSPACE)
+
+# --- the two-graph answer to unreachability ---
+# Two pods 300u apart. At the players' own hyperspace 1 (125u) the galaxy is in
+# two pieces, so measuring travel there would hand back infinities that then
+# have to be dropped - and dropping them scores the map as *fairer*, because
+# the players who could not reach anything stop counting. It is measured at
+# the level where the galaxy is one piece instead.
+split_stars = []
+for pod, base_x in enumerate((0.0, 360.0)):
+    for offset in (0.0, 60.0):
+        split_stars.append(model.new_star((base_x + offset, 0.0)))
+split_stars.append(model.new_star((180.0, 200.0)))
+model.assign_ids(split_stars)
+for star in split_stars:
+    model.set_resources(star, 25)
+split_players = []
+for pod in range(2):
+    capital = split_stars[pod * 2]
+    model.make_home_star(capital, str(pod + 1), ships=10, economy=5, industry=5, science=1)
+    split_stars[pod * 2 + 1]["playerId"] = str(pod + 1)
+    model.set_ships(split_stars[pod * 2 + 1], 10)
+    split_players.append(model.new_player(
+        str(pod + 1), capital["id"],
+        technologies=dict(model.DEFAULT_TECHNOLOGIES, hyperspace=1, scanning=1)))
+severed = model.galaxy(split_stars, split_players)
+split = metrics.read(severed)
+check("a galaxy in pieces is not connected at the opening jump",
+      not split.connected_at_start)
+check("it reports the level at which it joins up", split.connect_level == 4)
+check("travel is measured at that level, so nothing is marooned",
+      split.marooned == 0)
+check("no travel statistic comes back unreachable",
+      all(v is not None for v in metrics.first_contact(split)))
+check("chokepoints stay on the opening graph",
+      split.adj_open is not split.adj_travel)
+
+# --- the whole summary ---
+whole = metrics.summary(valid)
+check("summary reports every statistic", all(k in whole for k in metrics.ALL))
+check("summary round-trips through JSON",
+      isinstance(json.loads(json.dumps(whole)), dict))
+check("summary carries the raw per-player values",
+      set(whole["raw"]) == set(metrics.FAIRNESS))
+check("every statistic has a label", all(k in metrics.LABELS for k in metrics.ALL))
+check("every scored statistic has a direction",
+      set(metrics.LOWER_IS_BETTER) == set(metrics.FAIRNESS) | set(metrics.NOVELTY))
+check("compactness is not scored - it is a description",
+      not any(k in metrics.LOWER_IS_BETTER for k in metrics.COMPACTNESS))
+check("between-seed diversity of one map is undefined",
+      metrics.between_seed_diversity([metrics.descriptor(reading)]) is None)
+check("between-seed diversity of identical maps is 0",
+      metrics.between_seed_diversity([[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]) == 0.0)
+
+if real.exists():
+    congruent = metrics.summary(json.loads(real.read_text(encoding="utf-8")))
+    # spy_v_spy is built by rotating one wedge, so every player's start is
+    # congruent to every other by construction and every spread must be
+    # exactly 0. This is the strongest correctness check here: a bug in any of
+    # the six shows up as a non-zero spread on a map that provably has none.
+    for name in metrics.FAIRNESS:
+        check(f"{real.name} has zero {name} spread by congruence",
+              congruent[name] == 0.0)
+    # Nine separate galaxies, so it is deliberately not one piece at the
+    # hyperspace its players start on - it joins up at 5, and that is the level
+    # its travel statistics are measured at.
+    check(f"{real.name} is nine galaxies, not one at the opening jump",
+          not congruent["context"]["connected_at_start"])
+    check(f"{real.name} joins up below the ceiling",
+          congruent["context"]["connect_level"] is not None)
 
 # --------------------------------------------------------------------------
 # rules document, as the CLI serves it

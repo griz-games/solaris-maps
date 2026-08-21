@@ -118,6 +118,35 @@ def reachable_within(source: dict, stars: Iterable[dict], reach: float,
     return out
 
 
+def reachable_from_any(sources: Iterable[dict], stars: Iterable[dict], reach: float,
+                       include_wormholes: bool = True) -> list[dict]:
+    """Every star reachable in one jump from *any* of `sources`.
+
+    Use this, not `reachable_within`, whenever the question is "what can this
+    player do on turn one". A Solaris player starts owning several stars and may
+    launch a carrier from any of them, so their opening reach is the union of
+    their whole starting pod's reach, not a disc around the capital.
+
+    Measuring from the capital alone understates it badly and in a way that looks
+    plausible: at the official `standard.json` settings the capital-only measure
+    says every player is stranded with nothing reachable, while the correct
+    measure says every player has between 2 and 9 choices. The generator's
+    pull-into-range pass deliberately strings the pod out into a chain, so the
+    far end of that chain is most of a player's opening frontier.
+    """
+    owned = {s["id"] for s in sources}
+    out = []
+    for star in stars:
+        if star["id"] in owned:
+            continue
+        if any(reachable for reachable in (
+                include_wormholes and source.get("wormHoleToStarId") == star["id"]
+                or dist(star_point(source), star_point(star)) <= reach
+                for source in sources)):
+            out.append(star)
+    return out
+
+
 def connected_hops(stars: Sequence[dict], sources: Sequence[dict], reach: float,
                    carrier_speed: float = rules.BASE_CARRIER_SPEED) -> dict[str, float]:
     """Cheapest travel time in ticks from any of `sources` to every star.

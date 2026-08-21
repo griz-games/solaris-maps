@@ -2,6 +2,7 @@
 
     validate <map.json>      will Solaris load this? exit 1 if not
     inspect  <map.json>      is this the map you meant? numbers, not opinions
+    metrics  <map.json>      fairness, compactness and novelty statistics
     render   <map.json>      draw it to SVG with the game's own art
     rules                    the constants, formulas and limits, --json for machines
     sync-specialists <path>  regenerate the specialist table from an editor checkout
@@ -17,6 +18,7 @@ import sys
 from pathlib import Path
 
 from . import inspect as inspect_module
+from . import metrics as metrics_module
 from . import model, render, rules, specialists, validate
 
 
@@ -72,6 +74,23 @@ def cmd_inspect(args) -> int:
     else:
         print(f"{args.path.name}")
         print(inspect_module.format_report(result))
+    return 0
+
+
+# --------------------------------------------------------------------------
+# metrics
+# --------------------------------------------------------------------------
+
+
+def cmd_metrics(args) -> int:
+    data = _load(args.path)
+    result = metrics_module.summary(data, hyperspace=args.hyperspace,
+                                    scanning=args.scanning)
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"{args.path.name}")
+        print(metrics_module.format_summary(result))
     return 0
 
 
@@ -248,6 +267,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--hyperspace", type=int, default=None,
                    help="level to measure reach at (default: the players' own)")
     p.set_defaults(func=cmd_inspect)
+
+    p = sub.add_parser("metrics",
+                       help="fairness, compactness and novelty statistics")
+    p.add_argument("path", type=Path)
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.add_argument("--hyperspace", type=int, default=None,
+                   help="level to measure travel at (default: the players' own)")
+    p.add_argument("--scanning", type=int, default=None,
+                   help="level to measure vision at (default: the players' own)")
+    p.set_defaults(func=cmd_metrics)
 
     p = sub.add_parser("render", help="draw the map to SVG")
     p.add_argument("path", type=Path)
