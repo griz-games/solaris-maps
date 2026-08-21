@@ -1,0 +1,74 @@
+/* Print stylesheet for the Markdown write-ups.
+ *
+ * Used by the pandoc -> Chrome route in the README of this directory:
+ * pandoc renders the Markdown to a standalone HTML file with the figures
+ * inlined, and Chrome's print engine turns that into a PDF. The SVG figures
+ * stay vector all the way through, so the maps and charts are still sharp at
+ * any zoom.
+ */
+
+@page { size: A4; margin: 18mm 16mm; }
+
+html, body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: #14161a;
+  background: #fff;
+  max-width: none;
+  margin: 0;
+}
+
+h1, h2, h3 { color: #000; break-after: avoid; }
+h1 { font-size: 20pt; margin: 0 0 6pt; letter-spacing: -0.01em; }
+h2 { font-size: 13pt; margin: 20pt 0 6pt; padding-top: 8pt;
+     border-top: 1px solid #d9dbe0; }
+h3 { font-size: 11pt; margin: 14pt 0 4pt; }
+
+p, li { orphans: 2; widows: 2; }
+strong { color: #000; }
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 10pt 0;
+  break-inside: avoid;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 8.5pt;
+  margin: 8pt 0;
+  break-inside: avoid;
+}
+th, td {
+  border-bottom: 1px solid #e3e5ea;
+  padding: 3pt 5pt;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5b6270;
+  font-weight: 600;
+}
+/* Result tables are numeric and right-align; the definition tables are prose
+ * and must not. A definition table is the one with three or more columns of
+ * text, which `:has` can pick out without tagging anything in the Markdown. */
+td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+table:has(th:nth-child(3):last-child) td { text-align: left; }
+
+code {
+  font-family: ui-monospace, Consolas, "Cascadia Mono", monospace;
+  font-size: 0.9em;
+  background: #f4f5f7;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+hr { border: 0; border-top: 1px solid #d9dbe0; margin: 14pt 0; }
+a { color: #14161a; text-decoration: none; }

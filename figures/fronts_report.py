@@ -68,13 +68,33 @@ def load(path: Path) -> dict[str, list[dict]]:
     """
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
             if line.strip()]
+
+    # Band membership is recomputed from each draw's stored per-player fronts
+    # rather than trusted from the sweep, so the band can be changed without
+    # regenerating 9,000 galaxies.
+    low, high = study.FRONTS_BAND
+    for record in rows:
+        fronts = record["raw_fronts"]
+        record["in_band"] = bool(min(fronts) >= low and max(fronts) <= high)
+        record["out_of_band"] = sum(1 for v in fronts if v < low or v > high)
+        record["band_deviation"] = sum(max(low - v, 0) + max(v - high, 0)
+                                       for v in fronts)
+
     stream = [r for r in rows if r["arm"] == "AB"]
     stream.sort(key=lambda r: int(r["seed"].split("-")[1]))
     arm_c = [r for r in rows if r["arm"] == "C"]
     arm_c.sort(key=lambda r: int(r["seed"].split("-")[1]))
+
+    # Arm B is the `TARGET` draws of the stream that sit closest to the fronts
+    # band, ranked by how many players fall outside it and then by how far.
+    # A hard filter is not available at this band - the acceptance rate is
+    # reported instead - and ranking is the selection rule the study is about
+    # anyway: draw many, keep the best.
+    ranked = sorted(stream, key=lambda r: (r["out_of_band"], r["band_deviation"],
+                                           int(r["seed"].split("-")[1])))
     return {
         "A": stream[:TARGET],
-        "B": [r for r in stream if r["in_band"]][:TARGET],
+        "B": ranked[:TARGET],
         "C": arm_c[:TARGET],
         "stream": stream,
     }

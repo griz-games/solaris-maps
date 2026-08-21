@@ -506,7 +506,23 @@ def fronts(reading: Reading) -> list[int]:
         for i, mine in enumerate(reading.territory):
             if mine is None:
                 continue
-            for j, _ in reading.adj_travel[i]:
+            # Borders are counted on `adj_open`, the range the players actually
+            # have, not on `adj_travel`. The two graphs answer different
+            # questions and this is a structure question - see `Reading`.
+            #
+            # On `adj_travel` a badly connected galaxy is measured at whatever
+            # hyperspace level finally joins it up, which can be 8: a 475u jump
+            # against the 175u the players start with. At that radius a star is
+            # "one jump" from most of the neighbourhood, so territories two and
+            # three regions apart get counted as touching, and the statistic
+            # inflates precisely on the maps that are worst connected. Measured
+            # across 400 draws it ran to 20 rivals where the opening jump gives
+            # 14, and the inflation tracked `connect_level` monotonically.
+            #
+            # Territory still comes from `adj_travel`, so no star is dropped for
+            # being unreachable - that hazard is real and is what the graph is
+            # there for. Only the border test moves.
+            for j, _ in reading.adj_open[i]:
                 theirs = reading.territory[j]
                 if theirs is not None and theirs != mine:
                     touching[mine].add(theirs)

@@ -91,8 +91,17 @@ SPLIT_RESOURCES = True                   # specialGalaxy.splitResources: enabled
 # live game are *not* identical across players.
 CAPITAL_NR = NR_MAX
 
-# The band for arm B, on metrics.fronts, every player inside it.
-FRONTS_BAND = (2, 9)
+# The target band for arm B, on metrics.fronts.
+#
+# Changing this does NOT require re-running the sweep: every draw stores its
+# full per-player fronts, and `fronts_report.load` recomputes band membership
+# from that. The values recorded here are a convenience for a single-draw read.
+#
+# A hard filter on the band is not reachable at any tight setting - with fronts
+# measured correctly the median seat borders 5 rivals - so the acceptance rate
+# is reported rather than assumed, and arm B is built by *ranking* draws on how
+# far they sit from the band.
+FRONTS_BAND = (2, 5)
 
 GENERATOR = "irregular"
 N_LIMIT_KWARGS = {"min_neighbours": 2, "max_neighbours": 4}
@@ -225,6 +234,11 @@ def measure(seed: str, galaxy: dict) -> dict:
     record["fronts_min"] = min(fronts)
     record["fronts_max"] = max(fronts)
     record["in_band"] = bool(min(fronts) >= low and max(fronts) <= high)
+    # How far this map sits from the band, for ranking: how many players are
+    # outside it, then by how much in total. Zero on a map that satisfies it.
+    record["out_of_band"] = sum(1 for v in fronts if v < low or v > high)
+    record["band_deviation"] = sum(max(low - v, 0) + max(v - high, 0)
+                                   for v in fronts)
     return record
 
 

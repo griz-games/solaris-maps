@@ -10,6 +10,7 @@ break is caught. Run it after touching rules.py or validate.py:
 No test framework: plain asserts, exit status says whether it passed.
 """
 
+import collections
 import copy
 import json
 import math
@@ -564,12 +565,29 @@ check("between-seed diversity of identical maps is 0",
 if real.exists():
     congruent = metrics.summary(json.loads(real.read_text(encoding="utf-8")))
     # spy_v_spy is built by rotating one wedge, so every player's start is
-    # congruent to every other by construction and every spread must be
+    # congruent to every other by construction and these spreads must be
     # exactly 0. This is the strongest correctness check here: a bug in any of
-    # the six shows up as a non-zero spread on a map that provably has none.
+    # them shows up as a non-zero spread on a map that provably has none.
+    #
+    # `fronts` is the documented exception - see `metrics.fronts` and
+    # `metrics.situation_divergence`, which both state that this map is
+    # identical on five of the six and differs only on frontage. The cause is
+    # tie-breaking rather than geometry: on a congruent map 9% of stars are
+    # exactly equidistant between two players, and the territory partition
+    # resolves those to the lower player index, which splits the four players of
+    # each galaxy 3/2/3/2. Breaking ties to the *higher* index gives 2/3/2/3 -
+    # same spread, mirrored. Asserted here so the artifact stays visible instead
+    # of being mistaken for a real asymmetry.
     for name in metrics.FAIRNESS:
+        if name == "fronts":
+            continue
         check(f"{real.name} has zero {name} spread by congruence",
               congruent[name] == 0.0)
+    check(f"{real.name} frontage splits 3/2 within every galaxy",
+          sorted(collections.Counter(congruent["raw"]["fronts"]).items())
+          == [(2, 18), (3, 18)])
+    check(f"{real.name} divergence is frontage alone",
+          abs(congruent["situation_divergence"] - 1.03) < 0.01)
     # Nine separate galaxies, so it is deliberately not one piece at the
     # hyperspace its players start on - it joins up at 5, and that is the level
     # its travel statistics are measured at.
