@@ -4,8 +4,9 @@ A command-line toolkit for building custom galaxy maps for
 [Solaris](https://github.com/solaris-games/solaris), and drawing them with the game's own art.
 
 Maps are Python scripts. The toolkit gives them Solaris's rules and measurements, factories
-that emit the exact JSON the game accepts, validation that says whether it will actually
-load, and a renderer for looking at the result.
+that emit the exact JSON the game accepts, generators that grow a galaxy when you would rather
+not place one, validation that says whether it will actually load, statistics that say whether
+it is any good, and a renderer for looking at the result.
 
 Python 3.10+, standard library only. Nothing to install.
 
@@ -15,6 +16,7 @@ Python 3.10+, standard library only. Nothing to install.
 python maps/spy_v_spy.py                            # build (validates as it writes)
 python -m solarismap validate out/spy_v_spy.json    # will Solaris load it?
 python -m solarismap inspect  out/spy_v_spy.json    # is it the map you meant?
+python -m solarismap metrics  out/spy_v_spy.json    # is it fair, compact, interesting?
 python -m solarismap render   out/spy_v_spy.json -o out/spy_v_spy.svg
 ```
 
@@ -48,35 +50,86 @@ model.write("out/my_map.json", data)
 wormholes, every contested star equidistant from the two players contesting it. Run it with
 `--render` for the annotated figures, or `--galaxies 2` for an 8-player cut.
 
+## Placed maps and grown ones
+
+Both maps above are *placed*: a wedge is built once and rotated, so every player's start is the
+same start by construction, and fairness is inherited rather than arranged. That is the safe
+way, and it costs a map its landmarks — a rotationally symmetric galaxy has no unique place in
+it, because every place exists N times.
+
+`solarismap.generate` is the other half — the editor's six generators (`circular`, `doughnut`,
+`circular_balanced`, `spiral`, `irregular`, `irregular_n_limit`) ported to Python, which grow a
+star field with no symmetry at all. `solarismap.randomise` then decides what each star *is*:
+resources, terrain in regions rather than salt-and-pepper, wormholes. Fairness on a grown map
+has to be arranged and then measured, and `maps/irregular.py` is the worked example — 200 stars,
+10 players, identical openings by construction, neutral stars priced by distance from the
+nearest capital, and a `check()` that bounds distributions because it has no congruence to
+assert.
+
+```sh
+python maps/irregular.py [--seed S] [--generator NAME] [--players N] [--render]
+```
+
+A seed reproduces *this* toolkit's galaxy, not the editor's: the two npm dependencies with no
+standard library equivalent are reimplemented faithfully but not bit-compatibly.
+
 ## Commands
 
 | | |
 | --- | --- |
 | `python -m solarismap validate <map>` | Solaris-parity validation. Exit 1 if it would be rejected. |
 | `python -m solarismap inspect <map>` | balance, spacing, reachability, scanning, terrain. `--json` for machines. |
+| `python -m solarismap metrics <map>` | eleven fairness, compactness and novelty statistics. `--json` for machines. |
 | `python -m solarismap render <map>` | SVG using the game's art. `--labels`, `--scan`, `--focus X,Y,R`. |
 | `python -m solarismap rules` | constants, formulas, hard limits, specialists. `--json` for machines. |
 | `python -m solarismap sync-specialists <path>` | regenerate the specialist table from an editor checkout. |
-| `python tests/test_solarismap.py` | 110 checks over the rules math and the validator. |
+| `python tests/test_solarismap.py` | 164 checks over the rules math, the validator and the statistics. |
 | `python docs/publish.py` | copy built figures into the site. `--check` exits 1 if it is stale. |
 
-## Two different questions
+## Three different questions
 
 `validate` answers *will Solaris load this file*. It says nothing about whether the map is
 worth playing. `inspect` — and the invariants each builder checks for itself — answer *is this
 the map I meant*: are the players balanced, is anything marooned, is the contested ground
 genuinely contested. A map needs both, and they fail in different ways.
 
+`metrics` answers a third, impartial question — *is it fair, compact, interesting* — with
+eleven statistics that score any map without knowing what it was meant to be, and that never
+fail anything. [METRICS.md](METRICS.md) explains what each one measures and how to read it.
+The short version: a statistic off one map is a draw, not a property of the generator that
+made it, so a claim about a generator needs a distribution.
+
 ## The package
 
 `solarismap/` — `rules` (ranges, terraforming, dead stars, the limits Solaris enforces),
 `geometry` (points, spacing, reachability, scan queries), `model` (star/player/carrier
-factories and the writer), `validate`, `inspect`, `render`, and `specialists`.
+factories and the writer), `generate` (the six layout generators), `randomise` (resources,
+terrain, wormholes), `metrics`, `validate`, `inspect`, `render`, and `specialists`.
 
 `solarismap/specialists.json` is generated from the editor's store, never hand-edited. The art
 in `solarismap/assets/` is vendored from the same place — see
 [ATTRIBUTION.md](solarismap/assets/ATTRIBUTION.md), which carries the game-icons.net credits
 the icon license requires.
+
+## The studies
+
+`figures/` runs the statistics over many maps instead of one, and writes up what comes back.
+[FRONTS.md](FRONTS.md) is the finished one: 8,000 thirty-two-player irregular galaxies built
+the way the live game builds them, split into three arms — the status quo, the same generator
+with the maps picked for fewest fronts, and the `irregular_n_limit` redesign that caps how many
+neighbours a capital may have — and measured against all eleven statistics. Its headline is
+that drawing two galaxies and keeping the fairer beats redesigning the generator, and drawing
+twenty gets you five times as far.
+
+```sh
+python figures/fronts_study.py --pilot 240              # acceptance rate first
+python figures/fronts_study.py --target 1000            # → out/fronts_study.ndjson
+python figures/fronts_md.py                             # → FRONTS.md and its figures
+python figures/fronts_report.py                         # → out/fronts_report.html, all eleven
+```
+
+The study deliberately does *not* use `maps/irregular.py`'s pipeline, which adds a fairness
+layer the game does not have. The question it asks is what the game itself produces.
 
 ## The site
 
@@ -128,9 +181,9 @@ Full table from `python -m solarismap rules`; the ones that shape a design:
 
 ## Working with agents
 
-`.claude/` carries a `solaris-map` skill, `/newmap` and `/checkmap` commands, and two hooks:
-a map JSON written or edited directly is validated immediately, and a turn cannot end with an
-invalid map in `out/`.
+`.claude/` carries two skills — `solaris-map` for maps that are placed, `irregular-galaxy` for
+maps that are grown — `/newmap` and `/checkmap` commands, and two hooks: a map JSON written or
+edited directly is validated immediately, and a turn cannot end with an invalid map in `out/`.
 
 ## Licence
 
