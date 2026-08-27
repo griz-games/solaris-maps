@@ -6,8 +6,9 @@ __pycache__/
 # whenever the renderer does. The maps themselves are deliverables and stay.
 # The viewer sidecar belongs to its figure, and the tracked copy of both is the
 # published one in docs/assets/.
-out/*.svg
-out/*_targets.json
+out/**/*.svg
+out/**/*_targets.json
+out/**/*.html
 
 # Editor directories and files
 .vscode/*

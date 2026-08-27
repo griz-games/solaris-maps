@@ -171,8 +171,18 @@ def build(seed: str, generator: str = GENERATOR, **generator_kwargs) -> dict:
     # Scattered uniformly, one star at a time, and never rebalanced. That is
     # what the editor's Randomise menu does and what the game does; the
     # balance_terrain pass in maps/irregular.py is this repo's own.
-    randomise.randomise_terrain(stars, properties, **TERRAIN_PERCENTAGES)
+    #
+    # Wormholes first, because that is the order generateStars uses: wormholes,
+    # then nebulas, asteroid fields, binaries, black holes, pulsars.
     randomise.link_wormholes(stars, properties, WORMHOLE_PERCENTAGE)
+    randomise.randomise_terrain(stars, properties, **TERRAIN_PERCENTAGES)
+    # And the half that was missing: map.ts does not merely flag a special star,
+    # it overwrites the star's resources - science for a nebula, economy for an
+    # asteroid field, industry for a binary, and a fifth of everything for a
+    # black hole. Without it the special stars are ordinary stars wearing a
+    # costume, and `contested_resources` is measuring the wrong galaxy.
+    randomise.apply_terrain_resources(stars, properties, maximum=NR_MAX,
+                                      split=SPLIT_RESOURCES)
 
     # No balance_by_channel, no balance_terrain, no balance_openings.
     return model.galaxy(stars, players, carriers=[])

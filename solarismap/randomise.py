@@ -236,6 +236,86 @@ def randomise_terrain(stars: Sequence[dict], rng: generate.Rng,
     return counts
 
 
+# The game's own terrain-to-resource coupling. `server/services/map.ts`, in
+# `_generateNebulas`, `_generateAsteroidFields`, `_generateBinaryStars` and
+# `_generateBlackHoles`, does not merely flag a star - it overwrites the star's
+# natural resources, and the channel it overwrites is what gives each terrain
+# type its meaning:
+#
+#     nebula          science  = random(max * 1.5, max * 3)
+#     asteroid field  economy  = random(max * 1.5, max * 3)
+#     binary star     industry = random(max * 1.5, max * 3)
+#     black hole      every channel multiplied by 0.2, rounded up
+#
+# where `max` is game.constants.star.resources.maxNaturalResources, 50 by
+# default - so a special star carries 75 to 150 in its channel against an
+# ordinary star's 10 to 50, and a black hole is left with a fifth of whatever it
+# had. The first three apply **only when splitResources is on**; with a single
+# pooled channel the game rerolls all three for a binary and leaves nebulas and
+# asteroid fields alone entirely.
+#
+# Without this, terrain and wealth are independent and the special stars stop
+# being the prizes the map is arranged around.
+BLACK_HOLE_MULTIPLIER = 0.2
+SPECIAL_MINIMUM_FACTOR = 1.5
+SPECIAL_MAXIMUM_FACTOR = 3.0
+
+# Which channel each terrain type enriches, in the order map.ts applies them.
+# Order matters: a star flagged both binary and black hole gets its industry
+# raised and then everything cut, exactly as the game leaves it.
+SPECIAL_CHANNELS = (("isNebula", "science"),
+                    ("isAsteroidField", "economy"),
+                    ("isBinaryStar", "industry"))
+
+
+def apply_terrain_resources(stars: Sequence[dict], rng: generate.Rng, *,
+                            maximum: int = 50, split: bool = True) -> dict[str, int]:
+    """Overwrite natural resources to match the terrain each star carries.
+
+    Call this after `randomise_terrain`. It is deliberately a separate step
+    rather than folded into it: `maps/irregular.py` prices its neutral stars by
+    distance from the nearest capital and then balances them per channel, and
+    dropping 150-point special stars into that would undo the balancing it just
+    did. Game-fidelity builds want this; designed maps may not.
+
+    Home stars and dead stars are skipped, matching the `applicableStars` filter
+    upstream, which excludes both from every terrain pass.
+    """
+    low = int(maximum * SPECIAL_MINIMUM_FACTOR)
+    high = int(maximum * SPECIAL_MAXIMUM_FACTOR)
+    counts: dict[str, int] = {}
+
+    for field, channel in SPECIAL_CHANNELS:
+        touched = 0
+        for star in stars:
+            if not star.get(field) or star.get("homeStar") or rules.is_dead_star(star):
+                continue
+            resources = star.get("naturalResources") or {}
+            if split:
+                resources[channel] = rng.between(low, high)
+            elif field == "isBinaryStar":
+                # No split channels: map.ts rerolls all three to one value for a
+                # binary, and does nothing at all for nebulas or asteroid fields.
+                value = rng.between(low, high)
+                for name in rules.RESOURCE_CHANNELS:
+                    resources[name] = value
+            else:
+                continue
+            touched += 1
+        counts[field] = touched
+
+    touched = 0
+    for star in stars:
+        if not star.get("isBlackHole") or star.get("homeStar"):
+            continue
+        resources = star.get("naturalResources") or {}
+        for name in rules.RESOURCE_CHANNELS:
+            resources[name] = math.ceil(resources.get(name, 0) * BLACK_HOLE_MULTIPLIER)
+        touched += 1
+    counts["isBlackHole"] = touched
+    return counts
+
+
 def terrain_spread(stars: Sequence[dict], fraction: float = 0.45) -> float:
     """The noise spread that makes terrain arrive in belts, from the galaxy's size.
 

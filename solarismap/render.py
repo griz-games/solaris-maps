@@ -47,6 +47,14 @@ SHAPE_FILES = {
     "square": ASSETS / "map-objects" / "256x256_square.svg",
     "hexagon": ASSETS / "map-objects" / "256x256_hexagon.svg",
     "diamond": ASSETS / "map-objects" / "256x256_diamond.svg",
+    # A warp gate is not a mark of its own upstream - it selects a different
+    # player-shape sprite. star.ts drawColour indexes
+    # PLAYER_SYMBOLS[player.shape][2 + wgFlag], so the gate rides on the ring
+    # that already says who owns the star.
+    "circle_warp_gate": ASSETS / "map-objects" / "256x256_circle_warp_gate.svg",
+    "square_warp_gate": ASSETS / "map-objects" / "256x256_square_warp_gate.svg",
+    "hexagon_warp_gate": ASSETS / "map-objects" / "256x256_hexagon_warp_gate.svg",
+    "diamond_warp_gate": ASSETS / "map-objects" / "256x256_diamond_warp_gate.svg",
 }
 
 STAR_FILES = {
@@ -451,12 +459,16 @@ def draw_star(star: dict, ctx: Context) -> tuple[str, str, str]:
                 body.append(circle(cx + side * radius * scale, cy, radius * scale,
                                    colour, 1.4, 0.75))
 
-    if star.get("warpGate"):
-        body.append(circle(cx, cy, 18 * scale, colour, 1.2, 0.7, dash="3 3"))
-
+    # star.ts drawColour. Two things follow from it and both are deliberate.
+    # The warp gate selects a different player-shape sprite rather than drawing
+    # a ring of its own - this used to draw a dashed circle, which the game has
+    # no equivalent of. And drawColour returns early when the star has no owner,
+    # so an unowned warp gate is invisible in the game and is invisible here.
     pid = star.get("playerId")
     if pid is not None:
         shape = ctx.shapes.get(pid, "circle")
+        if star.get("warpGate"):
+            shape = f"{shape}_warp_gate"
         body.append(use(f"shape-{shape}", cx, cy, SHAPE_SIZE * scale, colour, 0.9))
 
     if options.scan_circles:
