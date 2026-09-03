@@ -13,6 +13,15 @@
       "figure": "spy_v_spy"
     },
     {
+      "slug": "spy-v-spy-irregular",
+      "title": "Spy v Spy — Irregular",
+      "summary": "36 players, 9 galaxies. The same skeleton, grown rather than placed.",
+      "players": 36,
+      "stars": 909,
+      "content": "spy-v-spy-irregular.md",
+      "figure": "spy_v_spy_irregular"
+    },
+    {
       "slug": "spy-v-spy-8p",
       "title": "Spy v Spy — 8p",
       "summary": "8 players, 2 galaxies. The same map, half the room.",

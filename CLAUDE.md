@@ -31,6 +31,7 @@ that from source.
 solarismap/     the package: rules, geometry, generate, model, validate, inspect, render, specialists
   assets/       vendored game art (~570 KB) + ATTRIBUTION.md
 maps/           one script per map: example.py (template), spy_v_spy.py (909 stars, 36 players),
+                spy_v_spy_irregular.py (the same skeleton, 9 grown pods, fairness measured),
                 irregular.py (grown, not placed - the solarismap.generate worked example)
 out/            build output. Maps (*.json) are deliverables and tracked; figures (*.svg) are not
 docs/           the documentation site, served by GitHub Pages from this folder
@@ -52,6 +53,7 @@ mapping it uses is the `figure` key in `docs/maps.json`. Do not make a builder w
 
 ```sh
 python maps/spy_v_spy.py [--galaxies N] [--render]   # build; validates as it writes
+python maps/spy_v_spy_irregular.py [--pods N] [--render] [--probe] [--search N]
 python maps/example.py                               # the template map
 python maps/irregular.py [--seed S] [--generator N] [--players N] [--render]   # a grown map
 python -m solarismap validate out/<map>.json         # exit 1 if Solaris would reject it
@@ -75,7 +77,8 @@ themselves, so they run from anywhere.
 
 **Determinism is the regression test.** `python maps/spy_v_spy.py` reproduces `out/spy_v_spy.json` byte for
 byte — md5 `65bec4a2b2ace345264162effc34902d`. If that changes and you did not change the layout deliberately,
-something broke.
+something broke. `maps/spy_v_spy_irregular.py` is the same deal — md5 `f2b0f9e186bf47004c766134e482468b` —
+even though every pod in it is grown: the draws are seeded, so the search is reproducible too.
 
 ## Conventions
 
